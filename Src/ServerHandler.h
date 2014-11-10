@@ -12,6 +12,7 @@ class ClientHandler;
 class WorkerHandler;
 class WorkerThread;
 class Table;
+class User;
 
 class ServerHandler : public Server::Listener
 {
@@ -29,7 +30,7 @@ public:
   const HashMap<uint32_t, Table*>& getTables() const {return tables;}
   Table* findTable(uint32_t id) const;
 
-  uint64_t findUser(const String& name) const;
+  User* findUser(const String& name) const;
 
   WorkerHandler& getWorkerHandler() {return *workerHandlers.front();}
   void_t decreaseWorkerHandlerRank(WorkerHandler& workerHandler);

@@ -104,18 +104,24 @@ void_t ClientHandler::handleLogin(const DataProtocol::LoginRequest& login)
     sendErrorResponse(login.requestId, DataProtocol::invalidMessageSize);
     return;
   }
-  uint64_t userId = serverHandler.findUser(userName);
-  if(!userId)
+  User* user = serverHandler.findUser(userName);
+  if(!user)
   {
     sendErrorResponse(login.requestId, DataProtocol::invalidLogin);
     return;
   }
   ??
+  // generate signature salt
+
+  // send user salt & signature salt
 }
 
 void_t ClientHandler::handleAuth(const DataProtocol::AuthRequest& auth)
 {
   ??
+  // compute signature
+
+  // compare signature
 }
 
 void_t ClientHandler::handleAdd(const DataProtocol::AddRequest& add)
