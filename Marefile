@@ -2,17 +2,16 @@
 targets = {
 
   zlimdb = cppApplication + {
-    dependencies = { "libnstd" } + markets
+    dependencies = { "libnstd", "liblz4" }
     buildDir = "Build/$(configuration)"
-    includePaths = { "Ext/libnstd/include" }
-    libPaths = { "Build/$(configuration)/libnstd" }
-    libs = { "nstd" }
+    includePaths = { "Ext/libnstd/include", "Ext/lz4" }
+    libPaths = { "Build/$(configuration)/libnstd", "Build/$(configuration)/liblz4" }
+    libs = { "nstd", "lz4" }
     root = "Src"
     files = {
       "Src/**.cpp" = cppSource
       "Src/**.h"
     }
-    files -= { "Src/Markets/**" }
     if tool == "vcxproj" {
       libs += { "ws2_32" }
       linkFlags += { "/SUBSYSTEM:CONSOLE" }
@@ -34,6 +33,17 @@ targets = {
     }
     if tool == "vcxproj" {
       defines += { "_CRT_SECURE_NO_WARNINGS" }
+    }
+  }
+
+  liblz4 = cppStaticLibrary + {
+    folder = "Libraries"
+    includePaths = { "Ext/lz4" }
+    buildDir = "Build/$(configuration)/$(target)"
+    root = { "Ext/lz4" }
+    files = {
+      "Ext/lz4/lz4.c" = cSource,
+      "Ext/lz4/lz4.h"
     }
   }
 }

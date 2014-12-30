@@ -5,7 +5,8 @@
 #include "ClientHandler.h"
 #include "ServerHandler.h"
 #include "WorkerJob.h"
-#include "DataProtocol.h"
+#include "WorkerHandler.h"
+#include "InternalProtocol.h"
 #include "Table.h"
 
 Buffer ClientHandler::buffer;
@@ -104,24 +105,35 @@ void_t ClientHandler::handleLogin(const DataProtocol::LoginRequest& login)
     sendErrorResponse(login.requestId, DataProtocol::invalidMessageSize);
     return;
   }
-  User* user = serverHandler.findUser(userName);
-  if(!user)
+  Table* table = serverHandler.findTable(String("users/") + userName + "/.user");
+  if(!table)
   {
     sendErrorResponse(login.requestId, DataProtocol::invalidLogin);
     return;
   }
-  ??
-  // generate signature salt
 
-  // send user salt & signature salt
+  DataProtocol::Header internalLogin;
+  internalLogin.size = sizeof(internalLogin);
+  internalLogin.messageType = InternalProtocol::loginRequest;
+  internalLogin.requestId = login.requestId;
+  serverHandler.createWorkerJob(*this, *table, &internalLogin, sizeof(internalLogin));
 }
 
 void_t ClientHandler::handleAuth(const DataProtocol::AuthRequest& auth)
 {
-  ??
-  // compute signature
+  bool_t failed = Memory::compare(&auth.signature, &signature, sizeof(signature)) != 0;
+  Memory::zero(&signature, sizeof(signature));
+  if(failed)
+  {
+    sendErrorResponse(auth.requestId, DataProtocol::Error::invalidLogin);
+    return;
+  }
 
-  // compare signature
+  DataProtocol::Header authResponse;
+  authResponse.size = sizeof(authResponse);
+  authResponse.messageType = DataProtocol::authResponse;
+  authResponse.requestId = auth.requestId;
+  sendResponse(authResponse);
 }
 
 void_t ClientHandler::handleAdd(const DataProtocol::AddRequest& add)
@@ -132,15 +144,31 @@ void_t ClientHandler::handleAdd(const DataProtocol::AddRequest& add)
   case DataProtocol::timeTable:
     return sendErrorResponse(add.requestId, DataProtocol::invalidRequest);
   case DataProtocol::tablesTable:
-  case DataProtocol::usersTable:
+    {
+      // create table without opening the file
+      String tableName;
+      tableName.attach((const char_t*)(&add + 1), add.size - sizeof(add));
+      Table* table = serverHandler.findTable(tableName);
+      if(table)
+        return sendErrorResponse(add.requestId, DataProtocol::tableAlreadyExists);
+      table = &serverHandler.createTable(tableName);
+
+      // create internal job to create the file
+      DataProtocol::Header header;
+      header.size = sizeof(header) + tableName.length();
+      header.messageType = InternalProtocol::createTableRequest;
+      header.requestId = add.requestId;
+      WorkerJob& workerJob = serverHandler.createWorkerJob(*this, *table, &header, header.size);
+      workerJob.getRequestData().append((const byte_t*)(const char_t*)tableName, tableName.length());
+    }
+    break;
   default:
     {
       Table* table = serverHandler.findTable(add.tableId);
       if(!table)
         return sendErrorResponse(add.requestId, DataProtocol::tableNotFound);
 
-      WorkerJob& workerJob = table->createWorkerJob(*this, &add, add.size);
-      openWorkerJobs.append(&workerJob);
+      serverHandler.createWorkerJob(*this, *table, &add, add.size);
     }
     break;
   }
@@ -148,22 +176,53 @@ void_t ClientHandler::handleAdd(const DataProtocol::AddRequest& add)
 
 void_t ClientHandler::handleUpdate(const DataProtocol::UpdateRequest& update)
 {
-  ??
+  switch(update.tableId)
+  {
+  case DataProtocol::clientsTable:
+  case DataProtocol::timeTable:
+  case DataProtocol::tablesTable:
+    return sendErrorResponse(update.requestId, DataProtocol::invalidRequest);
+  default:
+    {
+      Table* table = serverHandler.findTable(update.tableId);
+      if(!table)
+        return sendErrorResponse(update.requestId, DataProtocol::tableNotFound);
+
+      serverHandler.createWorkerJob(*this, *table, &update, update.size);
+    }
+    break;
+  }
 }
 
 void_t ClientHandler::handleRemove(const DataProtocol::RemoveRequest& remove)
 {
-  ??
+  switch(remove.tableId)
+  {
+  case DataProtocol::clientsTable:
+  case DataProtocol::timeTable:
+    return sendErrorResponse(remove.requestId, DataProtocol::invalidRequest);
+  case DataProtocol::tablesTable:
+    return sendErrorResponse(remove.requestId, DataProtocol::notImplemented);
+  default:
+    {
+      Table* table = serverHandler.findTable(remove.tableId);
+      if(!table)
+        return sendErrorResponse(remove.requestId, DataProtocol::tableNotFound);
+
+      serverHandler.createWorkerJob(*this, *table, &remove, remove.size);
+    }
+    break;
+  }
 }
 
 void_t ClientHandler::handleSubscribe(const DataProtocol::SubscribeRequest& subscribe)
 {
-  ??
+  // todo
 }
 
 void_t ClientHandler::handleUnsubscribe(const DataProtocol::UnsubscribeRequest& unsubscribe)
 {
-  ??
+  // todo
 }
 
 void_t ClientHandler::handleQuery(const DataProtocol::QueryRequest& query)
@@ -192,14 +251,14 @@ void_t ClientHandler::handleQuery(const DataProtocol::QueryRequest& query)
           if(reqBufferSize > buffer.size())
           {
             response->size = pos - start;
-            response->flags = DataProtocol::Header::partial;
+            response->flags = DataProtocol::Header::fragmented;
             client.send(buffer, response->size);
             pos = start;
           }
           table->getEntity(*(DataProtocol::Table*)pos);
           pos += entitySize;
         }
-        response->size = pos - start;
+        response->size = pos - start + sizeof(DataProtocol::Header);
         response->flags = 0;
         client.send(buffer, response->size);
       }
@@ -230,16 +289,13 @@ void_t ClientHandler::handleQuery(const DataProtocol::QueryRequest& query)
     break;
   case DataProtocol::timeTable:
     return sendErrorResponse(query.requestId, DataProtocol::notImplemented);
-  case DataProtocol::usersTable:
-    return sendErrorResponse(query.requestId, DataProtocol::notImplemented);
   default:
     {
       Table* table = serverHandler.findTable(query.tableId);
       if(!table)
         return sendErrorResponse(query.requestId, DataProtocol::tableNotFound);
 
-      WorkerJob& workerJob = table->createWorkerJob(*this, &query, sizeof(query));
-      openWorkerJobs.append(&workerJob);
+      serverHandler.createWorkerJob(*this, *table, &query, sizeof(query));
     }
     break;
   }
@@ -255,11 +311,73 @@ void_t ClientHandler::sendErrorResponse(uint32_t requestId, DataProtocol::Error 
   client.send((const byte_t*)&response, sizeof(response));
 }
 
-void_t ClientHandler::handleFinishedWorkerJob(WorkerJob& workerJob)
+void_t ClientHandler::sendResponse(DataProtocol::Header& header)
 {
+  header.flags = 0;
+  client.send((const byte_t*)&header, header.size);
 }
 
-void_t ClientHandler::handleAbortedWorkerJob(WorkerJob& workerJob)
+void_t ClientHandler::handleWorkerJob(WorkerJob& workerJob)
 {
+  DataProtocol::Header* header = (DataProtocol::Header*)(const byte_t*)workerJob.getResponseData();
+  switch(header->messageType)
+  {
+  case InternalProtocol::MessageType::loginResponse:
+    handleInternalLoginResponse((InternalProtocol::LoginResponse&)*header);
+    break;
+  case DataProtocol::MessageType::errorResponse:
+    handleInternalErrorResponse((DataProtocol::ErrorResponse&)*header);
+    break;
+  case DataProtocol::MessageType::queryResponse:
+    handleInternalQueryResponse((DataProtocol::Header&)*header);
+    break;
+  default:
+    ASSERT(false);
+    break;
+  }
 }
 
+void_t ClientHandler::suspend()
+{
+  client.suspend();
+  suspended = true;
+}
+
+void_t ClientHandler::resume()
+{
+  client.resume();
+  suspended = false;
+  for(HashSet<WorkerJob*>::Iterator i = suspendedWorkerJobs.begin(), end = suspendedWorkerJobs.end(); i != end; ++i)
+  {
+    WorkerJob* workerJob = *i;
+    workerJob->getTable().getWorkerHandler()->continueWorkerJob(*workerJob);
+  }
+  suspendedWorkerJobs.clear();
+}
+
+void_t ClientHandler::handleInternalErrorResponse(const DataProtocol::ErrorResponse& errorResponse)
+{
+  client.send((const byte_t*)&errorResponse, errorResponse.size);
+}
+
+void_t ClientHandler::handleInternalLoginResponse(const InternalProtocol::LoginResponse& loginResponse)
+{
+  DataProtocol::LoginResponse response;
+  response.flags = 0;
+  response.size = sizeof(response);
+  response.messageType = DataProtocol::loginResponse;
+  response.requestId = loginResponse.requestId;
+  Memory::copy(&response.pwSalt, &loginResponse.pwSalt, sizeof(response.pwSalt));
+  Memory::copy(&response.authSalt, &loginResponse.authSalt, sizeof(response.authSalt));
+  Memory::copy(&signature, &loginResponse.signature, sizeof(signature));
+  client.send((const byte_t*)&response, sizeof(response));
+}
+
+void_t ClientHandler::handleInternalQueryResponse(const DataProtocol::Header& queryResponse)
+{
+  if(!client.send((const byte_t*)&queryResponse, queryResponse.size))
+  {
+    suspend();
+    return;
+  }
+}

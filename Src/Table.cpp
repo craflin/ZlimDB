@@ -1,4 +1,6 @@
 
+#include <nstd/Directory.h>
+
 #include "Table.h"
 #include "ServerHandler.h"
 #include "WorkerHandler.h"
@@ -6,6 +8,22 @@
 bool_t Table::open()
 {
   return tableFile.open(name);
+}
+
+bool_t Table::create(const DataProtocol::Entity* entity)
+{
+  String dir = File::dirname(name);
+  if(dir != ".")
+    Directory::create(dir);
+
+  if(!tableFile.create(name))
+    return false;
+  if(entity && !tableFile.add(*(const TableFile::DataHeader*)entity))
+  {
+    tableFile.close();
+    return false;
+  }
+  return true;
 }
 
 uint32_t Table::getEntitySize() const
@@ -20,30 +38,5 @@ void_t Table::getEntity(DataProtocol::Table& entity) const
   entity.time = time;
   entity.flags = 0;
   entity.nameSize = name.length();
-}
-
-WorkerJob& Table::createWorkerJob(ClientHandler& clientHandler, const void* data, size_t size)
-{
-  WorkerJob* workerJob = new WorkerJob(clientHandler, *this, data, size, tableFile);
-  openWorkerJobs.append(workerJob);
-  if(!workerHandler)
-  {
-    workerHandler = &serverHandler.getWorkerHandler();
-    workerHandler->enqueueJob(*workerJob);
-  }
-  else
-  {
-    workerHandler->enqueueJob(*workerJob);
-    serverHandler.increaseWorkerHandlerRank(*workerHandler);
-  }
-  return *workerJob;
-}
-
-void_t Table::removeWorkerJob(WorkerJob& workerJob)
-{
-  openWorkerJobs.remove(&workerJob);
-  serverHandler.decreaseWorkerHandlerRank(*workerHandler);
-  if(openWorkerJobs.isEmpty())
-    workerHandler = 0;
-  delete &workerJob;
+  Memory::copy(&entity + 1, (const char_t*)name, name.length());
 }

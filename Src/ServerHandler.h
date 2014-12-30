@@ -25,14 +25,16 @@ public:
 
   bool_t createWorkerThread();
 
-  Table* createTable(uint32_t id, const String& name);
+  Table& createTable(const String& name);
   void_t removeTable(Table& table);
   const HashMap<uint32_t, Table*>& getTables() const {return tables;}
   Table* findTable(uint32_t id) const;
+  Table* findTable(const String& name) const;
 
-  User* findUser(const String& name) const;
+  WorkerJob& createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size);
+  void_t removeWorkerJob(WorkerJob& workerJob);
 
-  WorkerHandler& getWorkerHandler() {return *workerHandlers.front();}
+private:
   void_t decreaseWorkerHandlerRank(WorkerHandler& workerHandler);
   void_t increaseWorkerHandlerRank(WorkerHandler& workerHandler);
 
@@ -40,12 +42,12 @@ private:
   Server& server;
   uint32_t nextTableId;
   HashMap<uint32_t, Table*> tables;
+  HashMap<String, Table*> tablesByName;
   HashSet<ClientHandler*> clientHandlers;
   HashMap<WorkerHandler*, WorkerThread*> workerThreads;
   HashSet<WorkerHandler*> workerHandlers;
-  HashMap<String, uint32_t> users;
 
 private: // Server::Listener
-  virtual void_t acceptedClient(Server::Client& client, uint32_t addr, uint16_t port);
+  virtual void_t acceptedClient(Server::Client& client, uint16_t localPort);
   virtual void_t closedClient(Server::Client& client);
 };

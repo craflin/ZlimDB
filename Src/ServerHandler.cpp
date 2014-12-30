@@ -2,6 +2,9 @@
 #include <nstd/Console.h>
 #include <nstd/Time.h>
 #include <nstd/Directory.h>
+#include <nstd/Math.h>
+
+#include "Tools/Sha256.h"
 
 #include "ServerHandler.h"
 #include "ClientHandler.h"
@@ -33,29 +36,43 @@ bool_t ServerHandler::loadTables(const String& path)
   while(dir.read(fileName, isDir))
   {
     String filePath = path.isEmpty() ? fileName : path + "/" + fileName;
-    if((isDir && !loadTables(filePath)) || (fileName.endsWith(".table") && !loadTable(filePath)))
+    if((isDir && !loadTables(filePath)) || (!isDir && !loadTable(filePath)))
         return false;
+  }
+  if(tables.isEmpty()) // add default user
+  {
+    String tableName("users/root/.user");
+    InternalProtocol::User user;
+    user.id = 1;
+    user.time = Time::time();
+    user.size = sizeof(user);
+    for(uint16_t* i = (uint16_t*)user.pwSalt, * end = (uint16_t*)(user.pwSalt + sizeof(user.pwSalt)); i < end; ++i)
+      *i = Math::random();
+    Sha256::hmac(user.pwSalt, sizeof(user.pwSalt), (const byte_t*)"root", 4, user.pwHash);
+    Table& table = createTable(tableName);
+    if(!table.create(&user))
+    {
+      removeTable(table);
+      return false;
+    }
   }
   return true;
 }
 
 bool_t ServerHandler::loadTable(const String& path)
 {
-  uint32_t id;
-  if(path == ".users.table")
-    id = DataProtocol::usersTable;
-  else
-    id = nextTableId++;
+  uint32_t id = nextTableId++;
   File::Time fileTime;
   if(!File::time(path, fileTime))
     return false;
-  Table* table = new Table(*this, id, fileTime.creationTime, path);
+  Table* table = new Table(id, fileTime.creationTime, path);
   if(!table->open())
   {
     delete table;
     return false;
   }
   tables.append(id, table);
+  tablesByName.append(table->getName(), table);
   return true;
 }
 
@@ -115,18 +132,19 @@ void_t ServerHandler::increaseWorkerHandlerRank(WorkerHandler& workerHandler)
   }
 }
 
-Table* ServerHandler::createTable(uint32_t id, const String& name)
+Table& ServerHandler::createTable(const String& name)
 {
-  if(tables.find(id) != tables.end())
-    return 0;
-  Table* table = new Table(*this, id, Time::time(), name);
+  uint32_t id = nextTableId++;
+  Table* table = new Table(id, Time::time(), name);
   tables.append(id, table);
-  return table;
+  tablesByName.append(table->getName(), table);
+  return *table;
 }
 
 void_t ServerHandler::removeTable(Table& table)
 {
   tables.remove(table.getId());
+  tablesByName.remove(table.getName());
   delete &table;
 }
 
@@ -138,7 +156,15 @@ Table* ServerHandler::findTable(uint32_t id) const
   return 0;
 }
 
-void_t ServerHandler::acceptedClient(Server::Client& client, uint32_t addr, uint16_t port)
+Table* ServerHandler::findTable(const String& name) const
+{
+  Table* table = *tablesByName.find(name);
+  if(table && table->isValid())
+    return table;
+  return 0;
+}
+
+void_t ServerHandler::acceptedClient(Server::Client& client, uint16_t localPort)
 {
   ClientHandler* clientHandler = new ClientHandler(*this, client);
   client.setListener(clientHandler);
@@ -163,4 +189,44 @@ void_t ServerHandler::closedClient(Server::Client& client)
   workerThreads.remove(it);
   workerHandlers.remove(workerHandler);
   delete workerHandler;
+}
+
+WorkerJob& ServerHandler::createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size)
+{
+  WorkerJob* workerJob = new WorkerJob(clientHandler, table, table.getTableFile(), data, size);
+  WorkerHandler* workerHandler = table.getWorkerHandler();
+  if(!workerHandler)
+  {
+    workerHandler = workerHandlers.front();
+    workerHandlers.removeFront();
+    workerHandlers.append(workerHandler);
+    table.setWorkerHandler(workerHandler);
+    workerHandler->addWorkerJob(*workerJob);
+  }
+  else
+  {
+    workerHandler->addWorkerJob(*workerJob);
+    increaseWorkerHandlerRank(*workerHandler);
+  }
+  table.addWorkerJob(*workerJob);
+  clientHandler.addWorkerJob(*workerJob);
+  return *workerJob;
+}
+
+void_t ServerHandler::removeWorkerJob(WorkerJob& workerJob)
+{
+  Table& table = workerJob.getTable();
+  ClientHandler& clientHandler = workerJob.getClientHandler();
+  WorkerHandler& workerHandler = *table.getWorkerHandler();
+  table.removeWorkerJob(workerJob);
+  clientHandler.removeWorkerJob(workerJob);
+  workerHandler.removeWorkerJob(workerJob);
+  decreaseWorkerHandlerRank(workerHandler);
+  if(table.getLoad() == 0)
+  {
+    table.setWorkerHandler(0);
+    if(!table.isValid())
+      removeTable(table);
+  }
+  delete &workerJob;
 }

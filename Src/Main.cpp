@@ -18,7 +18,7 @@
 
 int_t main(int_t argc, char_t* argv[])
 {
-  static const uint16_t port = 40123;
+  static const uint16_t port = 13211;
   bool background = true;
   String dataDir("Data");
 
@@ -55,7 +55,7 @@ int_t main(int_t argc, char_t* argv[])
   // daemonize process
   if(background)
   {
-    const char* logFile = "MegucoData.log";
+    const char* logFile = "zlimdb.log";
   
     Console::printf("Starting as daemon...\n");
 
@@ -85,7 +85,7 @@ int_t main(int_t argc, char_t* argv[])
   }
 #endif
 
-  Console::printf("Starting data server...\n", port);
+  Console::printf("Starting zlimdb server...\n", port);
 
   // initialize listen server
   Server server;
@@ -103,7 +103,7 @@ int_t main(int_t argc, char_t* argv[])
   // load table data
   if(!serverHandler.loadTables())
   {
-    Console::errorf("error: Could not load tables: %s\n", port, (const char_t*)Error::getErrorString());
+    Console::errorf("error: Could not load tables: %s\n", (const char_t*)Error::getErrorString());
     return -1;
   }
 
@@ -111,7 +111,7 @@ int_t main(int_t argc, char_t* argv[])
   for(int i = 0; i < 4; ++i) // todo: make 4 a setting or parameter
     if(!serverHandler.createWorkerThread())
     {
-      Console::errorf("error: Could not create worker thread: %s\n", port, (const char_t*)Error::getErrorString());
+      Console::errorf("error: Could not create worker thread: %s\n", (const char_t*)Error::getErrorString());
       return -1;
     }
 

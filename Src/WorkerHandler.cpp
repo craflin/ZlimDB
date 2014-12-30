@@ -10,13 +10,21 @@
 
 WorkerHandler::~WorkerHandler()
 {
-  for(HashSet<WorkerJob*>::Iterator i = openWorkerJobs.begin(), end = openWorkerJobs.end(); i != end; ++i)
-    handleAbortedWorkerJob(**i);
+  while(!openWorkerJobs.isEmpty())
+    serverHandler.removeWorkerJob(*openWorkerJobs.front());
 }
 
-void_t WorkerHandler::enqueueJob(WorkerJob& workerJob)
+void_t WorkerHandler::addWorkerJob(WorkerJob& workerJob)
 {
   openWorkerJobs.append(&workerJob);
+  WorkerJob* buffer = &workerJob;
+  client.send((const byte_t*)&buffer, sizeof(buffer));
+}
+
+void_t WorkerHandler::continueWorkerJob(WorkerJob& workerJob)
+{
+  WorkerJob* buffer = &workerJob;
+  client.send((const byte_t*)&buffer, sizeof(buffer));
 }
 
 size_t WorkerHandler::handle(byte_t* data, size_t size)
@@ -26,34 +34,28 @@ size_t WorkerHandler::handle(byte_t* data, size_t size)
   {
     if(size < sizeof(WorkerJob*))
       break;
-    WorkerJob* workerJob = (WorkerJob*)pos;
-    handleFinishedWorkerJob(*workerJob);
+    WorkerJob* workerJob = *(WorkerJob**)pos;
+    handleWorkerJob(*workerJob);
     pos += sizeof(WorkerJob*);
     size -= sizeof(WorkerJob*);
   }
   return pos - data;
 }
 
-void_t WorkerHandler::write() 
-{
-}
-
-void_t WorkerHandler::handleFinishedWorkerJob(WorkerJob& workerJob)
+void_t WorkerHandler::handleWorkerJob(WorkerJob& workerJob)
 {
   if(workerJob.isValid())
-    workerJob.getClientHandler().handleFinishedWorkerJob(workerJob);
-  Table& table = workerJob.getTable();
-  table.removeWorkerJob(workerJob);
-  if(table.isValid() && table.getLoad() == 0)
-    serverHandler.removeTable(table);
-}
-
-void_t WorkerHandler::handleAbortedWorkerJob(WorkerJob& workerJob)
-{
-  if(workerJob.isValid())
-    workerJob.getClientHandler().handleAbortedWorkerJob(workerJob);
-  Table& table = workerJob.getTable();
-  table.removeWorkerJob(workerJob);
-  if(table.isValid() && table.getLoad() == 0)
-    serverHandler.removeTable(table);
+  {
+    bool finished = (((const DataProtocol::Header*)(const byte_t*)workerJob.getResponseData())->flags & DataProtocol::Header::fragmented) == 0;
+    ClientHandler& clientHandler = workerJob.getClientHandler();
+    clientHandler.handleWorkerJob(workerJob);
+    if(finished)
+      serverHandler.removeWorkerJob(workerJob);
+    else if(!clientHandler.isSuspended())
+      workerJob.getTable().getWorkerHandler()->continueWorkerJob(workerJob);
+    else
+      clientHandler.suspendWorkerJob(workerJob);
+  }
+  else
+    serverHandler.removeWorkerJob(workerJob);
 }

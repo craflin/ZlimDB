@@ -25,6 +25,7 @@ public:
     unsubscribeResponse,
     queryRequest,
     queryResponse,
+    numOfMessageTypes,
   };
   
   enum TableId
@@ -32,7 +33,6 @@ public:
     clientsTable,
     tablesTable,
     timeTable,
-    usersTable,
     numOfTableIds,
   };
 
@@ -45,14 +45,18 @@ public:
     notImplemented,
     invalidRequest,
     invalidLogin,
+    tableAlreadyExists,
+    couldNotOpenFile,
+    couldNotReadFile,
   };
 
-#pragma pack(push, 4)
+#pragma pack(push, 1)
   struct Header
   {
     enum
     {
-      partial = 0x01,
+      fragmented = 0x01,
+      compressed = 0x02,
     };
 
     uint8_t flags;
@@ -69,6 +73,12 @@ public:
   struct LoginRequest : public Header
   {
     uint16_t userNameSize;
+  };
+
+  struct LoginResponse : public Header
+  {
+    byte_t pwSalt[32];
+    byte_t authSalt[32];
   };
 
   struct AuthRequest : public Header
@@ -114,23 +124,23 @@ public:
   };
   struct SubscribeResponse
   {
-    uint64_t channelId;
+    uint64_t tableId;
     //uint32_t flags;
   };
   struct UnsubscribeRequest
   {
-    uint32_t channelId;
+    uint32_t tableId;
   };
   struct UnsubscribeResponse
   {
-    uint32_t channelId;
+    uint32_t tableId;
   };
 
   struct Entity
   {
-    uint32_t size;
     uint64_t id;
     uint64_t time;
+    uint16_t size;
   };
 
   struct Table : public Entity

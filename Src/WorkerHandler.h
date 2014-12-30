@@ -11,10 +11,13 @@ class WorkerJob;
 class WorkerHandler : public Server::Client::Listener
 {
 public:
-  WorkerHandler(ServerHandler& serverHandler, Server::Client& client) : serverHandler(serverHandler), client(client){}
+  WorkerHandler(ServerHandler& serverHandler, Server::Client& client) : serverHandler(serverHandler), client(client) {}
   ~WorkerHandler();
 
-  void_t enqueueJob(WorkerJob& workerJob);
+  void_t addWorkerJob(WorkerJob& workerJob);
+  void_t continueWorkerJob(WorkerJob& workerJob);
+  void_t removeWorkerJob(WorkerJob& workerJob) {openWorkerJobs.remove(&workerJob);}
+
   size_t getLoad() const {return openWorkerJobs.size();}
 
 private:
@@ -24,9 +27,7 @@ private:
 
 private: // Server::Client::Listener
   virtual size_t handle(byte_t* data, size_t size);
-  virtual void_t write();
 
 private:
-  void_t handleFinishedWorkerJob(WorkerJob& workerJob);
-  void_t handleAbortedWorkerJob(WorkerJob& workerJob);
+  void_t handleWorkerJob(WorkerJob& workerJob);
 };

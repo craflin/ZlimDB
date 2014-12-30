@@ -5,33 +5,36 @@
 #include <nstd/List.h>
 #include <nstd/HashSet.h>
 
-#include "DataProtocol.h"
-#include "WorkerJob.h"
 #include "Tools/TableFile.h"
 
-class ServerHandler;
-class ClientHandler;
+#include "DataProtocol.h"
+#include "WorkerJob.h"
+
 class WorkerHandler;
 
 class Table
 {
 public:
-  Table(ServerHandler& serverHandler, uint32_t id, timestamp_t time, const String& name) : serverHandler(serverHandler), id(id), valid(true), time(time), name(name), workerHandler(0) {}
+  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0) {}
 
   uint32_t getId() const {return id;}
+  const String& getName() const {return name;}
   bool_t isValid() const {return valid;}
 
   bool_t open();
+  bool_t create(const DataProtocol::Entity* entity);
+  TableFile& getTableFile() {return tableFile;}
 
   uint32_t getEntitySize() const;
   void_t getEntity(DataProtocol::Table& entity) const;
 
-  WorkerJob& createWorkerJob(ClientHandler& clientHandler, const void* data, size_t size);
-  void_t removeWorkerJob(WorkerJob& workerJob);
   size_t getLoad() const {return openWorkerJobs.size();}
+  WorkerHandler* getWorkerHandler() {return workerHandler;}
+  void_t setWorkerHandler(WorkerHandler* workerHandler) {this->workerHandler = workerHandler;}
+  void_t addWorkerJob(WorkerJob& workerJob) {openWorkerJobs.append(&workerJob);}
+  void_t removeWorkerJob(WorkerJob& workerJob) {openWorkerJobs.remove(&workerJob);}
 
 private:
-  ServerHandler& serverHandler;
   uint32_t id;
   bool valid;
   timestamp_t time;
