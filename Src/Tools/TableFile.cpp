@@ -478,8 +478,9 @@ bool_t TableFile::getCompressedBlock(const Key* key, Buffer& data, size_t dataOf
   if(uncompressedBlockIndex >= 0 && key == &((const Key*)(const byte_t*)keys)[uncompressedBlockIndex])
   {
     data.resize(dataOffset + sizeof(uint16_t) + LZ4_compressBound(key->size));
-    int_t blockSize = sizeof(uint16_t) + LZ4_compress((const char*)(const byte_t*)currentBlock, (char*)(byte_t*)data + dataOffset + sizeof(uint16_t), key->size);
+    int_t compressedSize = LZ4_compress((const char*)(const byte_t*)currentBlock, (char*)(byte_t*)data + dataOffset + sizeof(uint16_t), key->size);
     *(int16_t*)((byte_t*)data + dataOffset) = key->size;
+    data.resize(dataOffset + sizeof(uint16_t) + compressedSize);
   }
   else
   {

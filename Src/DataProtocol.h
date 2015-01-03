@@ -159,4 +159,13 @@ public:
     return true;
   }
 
+  static bool_t getString(const Header& header, const Entity& entity, size_t offset, size_t size, String& result)
+  {
+    size_t strEnd = offset + size;
+    if(strEnd > entity.size || (const byte_t*)&entity + strEnd > (const byte_t*)&header + header.size)
+      return false;
+    result.attach((const char_t*)&entity + offset, size);
+    return true;
+  }
+
 };

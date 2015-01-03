@@ -73,6 +73,7 @@ void_t WorkerThread::handleMessage(const DataProtocol::Header& header)
     break;
   case DataProtocol::queryRequest:
     handleQuery((DataProtocol::QueryRequest&)header);
+    break;
   default:
     ASSERT(false);
     break;
@@ -130,22 +131,21 @@ void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
   {
   case DataProtocol::QueryRequest::all:
     {
-      uint32_t requestId = query.requestId;
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       uint64_t blockId;
       if(query.param == 0)
       {
         if(!tableFile.getFirstCompressedBlock(blockId, responseBuffer, sizeof(DataProtocol::Header)))
-          return sendErrorResponse(requestId, DataProtocol::Error::couldNotReadFile);
+          return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
       }
       else if(!tableFile.getNextCompressedBlock(query.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
-        return sendErrorResponse(requestId, DataProtocol::Error::couldNotReadFile);
+        return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = DataProtocol::Header::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
         response->flags |= DataProtocol::Header::fragmented;
       response->messageType = DataProtocol::queryResponse;
-      response->requestId = requestId;
+      response->requestId = query.requestId;
       response->size = responseBuffer.size();
       ((DataProtocol::QueryRequest&)query).param = blockId;
       break;
@@ -165,7 +165,8 @@ void_t WorkerThread::sendErrorResponse(uint32_t requestId, DataProtocol::Error e
   Buffer& responseBuffer = currentWorkerJob->getResponseData();
   responseBuffer.resize(sizeof(DataProtocol::ErrorResponse));
   DataProtocol::ErrorResponse* response = (DataProtocol::ErrorResponse*)(byte_t*)responseBuffer;
-  response->size = sizeof(response);
+  response->size = sizeof(*response);
+  response->flags = 0;
   response->messageType = DataProtocol::errorResponse;
   response->requestId = requestId;
   response->error = error;
