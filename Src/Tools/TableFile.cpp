@@ -162,7 +162,7 @@ void_t TableFile::close()
   file.close();
 }
 
-bool_t TableFile::get(uint64_t id, Buffer& result)
+bool_t TableFile::get(uint64_t id, Buffer& result, size_t dataOffset)
 {
   const Key* key = findBlockKey(id);
   if(!key)
@@ -212,10 +212,32 @@ found:;
     return false;
 
   // return data
-  result.assign((const byte_t*)dataHeader, dataHeader->size);
+  result.resize(dataOffset + dataHeader->size);
+  Memory::copy((byte_t*)result + dataOffset, (const byte_t*)dataHeader, dataHeader->size);
   return true;
 }
 
+bool_t TableFile::getCompressedBlock(uint64_t id, uint64_t& blockId, Buffer& data, size_t dataOffset)
+{
+  const Key* key = findBlockKey(id);
+  if(!key)
+    return false;
+  if(!getCompressedBlock(key, data, dataOffset))
+    return false;
+  blockId = key->id;
+  return true;
+}
+
+bool_t TableFile::getCompressedBlockByTime(uint64_t timestamp, uint64_t& blockId, Buffer& data, size_t dataOffset)
+{
+  const Key* key = findBlockKeyByTime(timestamp);
+  if(!key)
+    return false;
+  if(!getCompressedBlock(key, data, dataOffset))
+    return false;
+  blockId = key->id;
+  return true;
+}
 bool_t TableFile::getFirstCompressedBlock(uint64_t& blockId, Buffer& data, size_t dataOffset)
 {
   if(keys.isEmpty())
@@ -573,4 +595,29 @@ int binsearch_5( arr_t array[], size_t size, arr_t key, size_t *index ){
   *index=p-array; return p[0]==key;
 }
   */
+}
+
+const TableFile::Key* TableFile::findBlockKeyByTime(uint64_t timestamp)
+{
+  // binary search on indices
+  const Key* key = (const Key*)(const byte_t*)keys;
+  const Key* keyEnd = key + keys.size() / sizeof(Key);
+  if(key == keyEnd || timestamp < key->timestamp)
+    return false;
+  if(keyEnd - key > 1)
+    for(size_t stepSize = ((keyEnd - key) + 1) >> 1;; stepSize = (stepSize + 1) >> 1)
+    {
+      const Key* i = key + stepSize;
+      if(i >= keyEnd || timestamp < i->timestamp)
+      {
+        if(stepSize == 1)
+          break;
+      }
+      else
+        key = i;
+    }
+
+  // todo: optimize binary search
+
+  return key;
 }

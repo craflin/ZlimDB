@@ -84,7 +84,7 @@ void_t WorkerThread::handleLogin(const DataProtocol::Header& header)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
   Buffer userBuffer;
-  if(!tableFile.get(1, userBuffer) || userBuffer.size() < sizeof(InternalProtocol::User))
+  if(!tableFile.get(1, userBuffer, 0) || userBuffer.size() < sizeof(InternalProtocol::User))
     return sendErrorResponse(header.requestId, DataProtocol::invalidLogin);
   const InternalProtocol::User* user = (const InternalProtocol::User*)(const byte_t*)userBuffer;
 
@@ -127,11 +127,11 @@ void_t WorkerThread::handleAdd(const DataProtocol::AddRequest& add)
 void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
+  Buffer& responseBuffer = currentWorkerJob->getResponseData();
   switch(query.type)
   {
   case DataProtocol::QueryRequest::all:
     {
-      Buffer& responseBuffer = currentWorkerJob->getResponseData();
       uint64_t blockId;
       if(query.param == 0)
       {
@@ -143,21 +143,64 @@ void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = DataProtocol::Header::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
+      {
         response->flags |= DataProtocol::Header::fragmented;
+        ((DataProtocol::QueryRequest&)query).param = blockId;
+      }
       response->messageType = DataProtocol::queryResponse;
       response->requestId = query.requestId;
       response->size = responseBuffer.size();
-      ((DataProtocol::QueryRequest&)query).param = blockId;
       break;
     }
   case DataProtocol::QueryRequest::byId:
-    break;
+    {
+      if(!tableFile.get(query.param, responseBuffer, sizeof(DataProtocol::Header)))
+        return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
+      DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
+      response->flags = 0;
+      response->messageType = DataProtocol::queryResponse;
+      response->requestId = query.requestId;
+      response->size = responseBuffer.size();
+      break;
+    }
   case DataProtocol::QueryRequest::sinceId:
-    break;
+    {
+      uint64_t blockId;
+      if(!tableFile.getCompressedBlock(query.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
+        return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
+      DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
+      response->flags = DataProtocol::Header::compressed;
+      if(tableFile.hasNextCompressedBlock(blockId))
+      {
+        response->flags |= DataProtocol::Header::fragmented;
+        ((DataProtocol::QueryRequest&)query).type = DataProtocol::QueryRequest::all;
+        ((DataProtocol::QueryRequest&)query).param = blockId;
+      }
+      response->messageType = DataProtocol::queryResponse;
+      response->requestId = query.requestId;
+      response->size = responseBuffer.size();
+      break;
+    }
   case DataProtocol::QueryRequest::sinceTime:
+    {
+      uint64_t blockId;
+      if(!tableFile.getCompressedBlockByTime(query.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
+        return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
+      DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
+      response->flags = DataProtocol::Header::compressed;
+      if(tableFile.hasNextCompressedBlock(blockId))
+      {
+        response->flags |= DataProtocol::Header::fragmented;
+        ((DataProtocol::QueryRequest&)query).type = DataProtocol::QueryRequest::all;
+        ((DataProtocol::QueryRequest&)query).param = blockId;
+      }
+      response->messageType = DataProtocol::queryResponse;
+      response->requestId = query.requestId;
+      response->size = responseBuffer.size();
+      break;
+    }
     break;
   }
-  // todo 
 }
 
 void_t WorkerThread::sendErrorResponse(uint32_t requestId, DataProtocol::Error error)

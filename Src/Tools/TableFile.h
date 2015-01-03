@@ -22,8 +22,9 @@ public:
   void_t close();
   bool_t add(const DataHeader& data);
   bool_t remove(uint64_t id);
-  bool_t get(uint64_t id, Buffer& data);
-  //bool_t getCompressedBlock(uint64_t id, Buffer& data, size_t dataOffset);
+  bool_t get(uint64_t id, Buffer& data, size_t dataOffset);
+  bool_t getCompressedBlock(uint64_t id, uint64_t& blockId, Buffer& data, size_t dataOffset);
+  bool_t getCompressedBlockByTime(uint64_t timestamp, uint64_t& blockId, Buffer& data, size_t dataOffset);
   bool_t getFirstCompressedBlock(uint64_t& blockId, Buffer& data, size_t dataOffset);
   bool_t hasNextCompressedBlock(uint64_t blockId);
   bool_t getNextCompressedBlock(uint64_t lastBlockId, uint64_t& blockId, Buffer& data, size_t dataOffset);
@@ -61,6 +62,7 @@ private:
 
   bool_t increaseIndicesSize();
   const Key* findBlockKey(uint64_t id);
+  const Key* findBlockKeyByTime(uint64_t timestamp);
   bool_t getCompressedBlock(const Key* key, Buffer& data, size_t dataOffset);
 
 };
