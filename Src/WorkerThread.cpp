@@ -95,11 +95,10 @@ void_t WorkerThread::handleLogin(const DataProtocol::Header& header)
   response->size = sizeof(*response);
   response->messageType = InternalProtocol::loginResponse;
   response->requestId = header.requestId;
-  Memory::copy(&response->pwHash, &user->pwHash, sizeof(user->pwHash));
   Memory::copy(&response->pwSalt, &user->pwSalt, sizeof(user->pwSalt));
   for(uint16_t* i = (uint16_t*)response->authSalt, * end = (uint16_t*)(response->authSalt + sizeof(response->authSalt)); i < end; ++i)
       *i = Math::random();
-  Sha256::hmac(response->authSalt, sizeof(response->authSalt), response->pwHash, sizeof(response->pwHash), response->signature);
+  Sha256::hmac(response->authSalt, sizeof(response->authSalt), user->pwHash, sizeof(user->pwHash), response->signature);
 }
 
 void_t WorkerThread::handleCreateTable(const DataProtocol::Header& header)

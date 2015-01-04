@@ -18,7 +18,6 @@ public:
   struct LoginResponse : public DataProtocol::Header
   {
     byte_t pwSalt[32];
-    byte_t pwHash[32]; // todo: remove this!
     byte_t authSalt[32];
     byte_t signature[32];
   };
