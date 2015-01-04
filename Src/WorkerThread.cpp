@@ -121,7 +121,20 @@ void_t WorkerThread::handleCreateTable(const DataProtocol::Header& header)
 
 void_t WorkerThread::handleAdd(const DataProtocol::AddRequest& add)
 {
-  // todo
+  TableFile& tableFile = currentWorkerJob->getTableFile();
+  const TableFile::DataHeader* data = (const TableFile::DataHeader*)(&add + 1);
+  if(data->size != add.size - sizeof(add))
+    return sendErrorResponse(add.requestId, DataProtocol::Error::invalidData);
+  if(!tableFile.add(*data))
+    return sendErrorResponse(add.requestId, DataProtocol::Error::couldNotWriteFile);
+
+  Buffer& responseBuffer = currentWorkerJob->getResponseData();
+  responseBuffer.resize(sizeof(DataProtocol::Header));
+  DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
+  response->flags = 0;
+  response->size = sizeof(*response);
+  response->messageType = DataProtocol::addResponse;
+  response->requestId = add.requestId;
 }
 
 void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)

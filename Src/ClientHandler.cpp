@@ -325,14 +325,9 @@ void_t ClientHandler::handleWorkerJob(WorkerJob& workerJob)
   case InternalProtocol::MessageType::loginResponse:
     handleInternalLoginResponse((InternalProtocol::LoginResponse&)*header);
     break;
-  case DataProtocol::MessageType::errorResponse:
-    handleInternalErrorResponse((DataProtocol::ErrorResponse&)*header);
-    break;
-  case DataProtocol::MessageType::queryResponse:
-    handleInternalQueryResponse((DataProtocol::Header&)*header);
-    break;
   default:
-    ASSERT(false);
+    if(!client.send((const byte_t*)header, header->size))
+      suspend();
     break;
   }
 }
@@ -355,11 +350,6 @@ void_t ClientHandler::resume()
   suspendedWorkerJobs.clear();
 }
 
-void_t ClientHandler::handleInternalErrorResponse(const DataProtocol::ErrorResponse& errorResponse)
-{
-  client.send((const byte_t*)&errorResponse, errorResponse.size);
-}
-
 void_t ClientHandler::handleInternalLoginResponse(const InternalProtocol::LoginResponse& loginResponse)
 {
   DataProtocol::LoginResponse response;
@@ -371,13 +361,4 @@ void_t ClientHandler::handleInternalLoginResponse(const InternalProtocol::LoginR
   Memory::copy(&response.authSalt, &loginResponse.authSalt, sizeof(response.authSalt));
   Memory::copy(&signature, &loginResponse.signature, sizeof(signature));
   client.send((const byte_t*)&response, sizeof(response));
-}
-
-void_t ClientHandler::handleInternalQueryResponse(const DataProtocol::Header& queryResponse)
-{
-  if(!client.send((const byte_t*)&queryResponse, queryResponse.size))
-  {
-    suspend();
-    return;
-  }
 }

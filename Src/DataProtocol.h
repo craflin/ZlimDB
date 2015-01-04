@@ -48,6 +48,8 @@ public:
     tableAlreadyExists,
     couldNotOpenFile,
     couldNotReadFile,
+    couldNotWriteFile,
+    invalidData,
   };
 
 #pragma pack(push, 1)

@@ -55,9 +55,7 @@ private:
   void_t handleUnsubscribe(const DataProtocol::UnsubscribeRequest& unsubscribe);
   void_t handleQuery(const DataProtocol::QueryRequest& query);
 
-  void_t handleInternalErrorResponse(const DataProtocol::ErrorResponse& errorResponse);
   void_t handleInternalLoginResponse(const InternalProtocol::LoginResponse& loginResponse);
-  void_t handleInternalQueryResponse(const DataProtocol::Header& queryResponse);
 
   void_t sendErrorResponse(uint32_t requestId, DataProtocol::Error error);
   void_t sendResponse(DataProtocol::Header& header);
