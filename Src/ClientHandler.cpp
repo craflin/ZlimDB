@@ -111,12 +111,7 @@ void_t ClientHandler::handleLogin(const DataProtocol::LoginRequest& login)
     sendErrorResponse(login.requestId, DataProtocol::invalidLogin);
     return;
   }
-
-  DataProtocol::Header internalLogin;
-  internalLogin.size = sizeof(internalLogin);
-  internalLogin.messageType = InternalProtocol::loginRequest;
-  internalLogin.requestId = login.requestId;
-  serverHandler.createWorkerJob(*this, *table, &internalLogin, sizeof(internalLogin));
+  serverHandler.createWorkerJob(*this, *table, &login, sizeof(login));
 }
 
 void_t ClientHandler::handleAuth(const DataProtocol::AuthRequest& auth)
@@ -352,6 +347,8 @@ void_t ClientHandler::resume()
 
 void_t ClientHandler::handleInternalLoginResponse(const InternalProtocol::LoginResponse& loginResponse)
 {
+  Memory::copy(&signature, &loginResponse.signature, sizeof(signature));
+
   DataProtocol::LoginResponse response;
   response.flags = 0;
   response.size = sizeof(response);
@@ -359,6 +356,5 @@ void_t ClientHandler::handleInternalLoginResponse(const InternalProtocol::LoginR
   response.requestId = loginResponse.requestId;
   Memory::copy(&response.pwSalt, &loginResponse.pwSalt, sizeof(response.pwSalt));
   Memory::copy(&response.authSalt, &loginResponse.authSalt, sizeof(response.authSalt));
-  Memory::copy(&signature, &loginResponse.signature, sizeof(signature));
   client.send((const byte_t*)&response, sizeof(response));
 }

@@ -8,17 +8,14 @@ class InternalProtocol
 public:
   enum MessageType
   {
-    loginRequest = DataProtocol::numOfMessageTypes,
-    loginResponse,
+    loginResponse = DataProtocol::numOfMessageTypes,
     createTableRequest,
     createTableResponse,
     numOfMessageTypes
   };
   
-  struct LoginResponse : public DataProtocol::Header
+  struct LoginResponse : public DataProtocol::LoginResponse
   {
-    byte_t pwSalt[32];
-    byte_t authSalt[32];
     byte_t signature[32];
   };
 

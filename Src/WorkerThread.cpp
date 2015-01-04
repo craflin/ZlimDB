@@ -62,7 +62,7 @@ void_t WorkerThread::handleMessage(const DataProtocol::Header& header)
 {
   switch((DataProtocol::MessageType)header.messageType)
   {
-  case InternalProtocol::loginRequest:
+  case DataProtocol::loginRequest:
     handleLogin(header);
     break;
   case InternalProtocol::createTableRequest:
