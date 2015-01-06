@@ -105,18 +105,18 @@ void_t WorkerThread::handleAdd(const DataProtocol::AddRequest& add)
   {
   case DataProtocol::tablesTable:
     {
+      const DataProtocol::Table* tableEntity = (const DataProtocol::Table*)(&add + 1);
       String tableName;
-      tableName.attach((const char_t*)(&add + 1), add.size - sizeof(add));
+      if(!DataProtocol::getString(add, *tableEntity, sizeof(*tableEntity), tableEntity->nameSize, tableName))
+        return sendErrorResponse(add.requestId, DataProtocol::Error::invalidData);
+
       if(!tableFile.create(tableName))
         return sendErrorResponse(add.requestId, DataProtocol::Error::couldNotOpenFile);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(DataProtocol::Header));
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
-      response->flags = 0;
-      response->size = sizeof(*response);
-      response->messageType = DataProtocol::addResponse;
-      response->requestId = add.requestId;
+      DataProtocol::setHeader(*response, DataProtocol::addResponse, sizeof(*response), add.requestId);
       break;
     }
   default:
