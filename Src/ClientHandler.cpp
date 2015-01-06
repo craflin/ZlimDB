@@ -139,30 +139,33 @@ void_t ClientHandler::handleAdd(const DataProtocol::AddRequest& add)
   case DataProtocol::timeTable:
     return sendErrorResponse(add.requestId, DataProtocol::invalidRequest);
   case DataProtocol::tablesTable:
+    if(add.size < sizeof(add) + sizeof(DataProtocol::Table))
+      sendErrorResponse(add.requestId, DataProtocol::invalidMessageSize);
+    else
     {
-      // create table without opening the file
+      // get table name
       String tableName;
-      tableName.attach((const char_t*)(&add + 1), add.size - sizeof(add));
+      const DataProtocol::Table* tableEntity = (const DataProtocol::Table*)(&add + 1);
+      DataProtocol::getString(add, *tableEntity, sizeof(*tableEntity), tableEntity->nameSize, tableName);
+
+      // create table without opening the file
       Table* table = serverHandler.findTable(tableName);
       if(table)
         return sendErrorResponse(add.requestId, DataProtocol::tableAlreadyExists);
       table = &serverHandler.createTable(tableName);
 
       // create internal job to create the file
-      DataProtocol::Header header;
-      header.size = sizeof(header) + tableName.length();
-      header.messageType = InternalProtocol::createTableRequest;
-      header.requestId = add.requestId;
-      WorkerJob& workerJob = serverHandler.createWorkerJob(*this, *table, &header, header.size);
-      workerJob.getRequestData().append((const byte_t*)(const char_t*)tableName, tableName.length());
+      serverHandler.createWorkerJob(*this, *table, &add, add.size);
     }
     break;
   default:
     {
+      // find table
       Table* table = serverHandler.findTable(add.tableId);
       if(!table)
         return sendErrorResponse(add.requestId, DataProtocol::tableNotFound);
 
+      // create job to add entity
       serverHandler.createWorkerJob(*this, *table, &add, add.size);
     }
     break;

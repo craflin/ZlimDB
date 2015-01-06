@@ -27,7 +27,6 @@ private:
 private:
   void_t handleMessage(const DataProtocol::Header& header);
   void_t handleLogin(const DataProtocol::Header& header);
-  void_t handleCreateTable(const DataProtocol::Header& header);
   void_t handleAdd(const DataProtocol::AddRequest& add);
   void_t handleQuery(const DataProtocol::QueryRequest& query);
 

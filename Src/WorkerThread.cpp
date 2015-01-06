@@ -65,9 +65,6 @@ void_t WorkerThread::handleMessage(const DataProtocol::Header& header)
   case DataProtocol::loginRequest:
     handleLogin(header);
     break;
-  case InternalProtocol::createTableRequest:
-    handleCreateTable(header);
-    break;
   case DataProtocol::addRequest:
     handleAdd((DataProtocol::AddRequest&)header);
     break;
@@ -101,39 +98,45 @@ void_t WorkerThread::handleLogin(const DataProtocol::Header& header)
   Sha256::hmac(response->authSalt, sizeof(response->authSalt), user->pwHash, sizeof(user->pwHash), response->signature);
 }
 
-void_t WorkerThread::handleCreateTable(const DataProtocol::Header& header)
-{
-  TableFile& tableFile = currentWorkerJob->getTableFile();
-  String tableName;
-  tableName.attach((const char_t*)(&header + 1), header.size - sizeof(header));
-  if(!tableFile.create(tableName))
-    return sendErrorResponse(header.requestId, DataProtocol::Error::couldNotOpenFile);
-
-  Buffer& responseBuffer = currentWorkerJob->getResponseData();
-  responseBuffer.resize(sizeof(DataProtocol::Header));
-  DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
-  response->flags = 0;
-  response->size = sizeof(*response);
-  response->messageType = InternalProtocol::createTableResponse;
-  response->requestId = header.requestId;
-}
-
 void_t WorkerThread::handleAdd(const DataProtocol::AddRequest& add)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
-  const TableFile::DataHeader* data = (const TableFile::DataHeader*)(&add + 1);
-  if(data->size != add.size - sizeof(add))
-    return sendErrorResponse(add.requestId, DataProtocol::Error::invalidData);
-  if(!tableFile.add(*data))
-    return sendErrorResponse(add.requestId, DataProtocol::Error::couldNotWriteFile);
+  switch(add.tableId)
+  {
+  case DataProtocol::tablesTable:
+    {
+      String tableName;
+      tableName.attach((const char_t*)(&add + 1), add.size - sizeof(add));
+      if(!tableFile.create(tableName))
+        return sendErrorResponse(add.requestId, DataProtocol::Error::couldNotOpenFile);
 
-  Buffer& responseBuffer = currentWorkerJob->getResponseData();
-  responseBuffer.resize(sizeof(DataProtocol::Header));
-  DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
-  response->flags = 0;
-  response->size = sizeof(*response);
-  response->messageType = DataProtocol::addResponse;
-  response->requestId = add.requestId;
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(DataProtocol::Header));
+      DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
+      response->flags = 0;
+      response->size = sizeof(*response);
+      response->messageType = DataProtocol::addResponse;
+      response->requestId = add.requestId;
+      break;
+    }
+  default:
+    {
+      const TableFile::DataHeader* data = (const TableFile::DataHeader*)(&add + 1);
+      if(data->size != add.size - sizeof(add))
+        return sendErrorResponse(add.requestId, DataProtocol::Error::invalidData);
+      if(!tableFile.add(*data))
+        return sendErrorResponse(add.requestId, DataProtocol::Error::couldNotWriteFile);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(DataProtocol::Header));
+      DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
+      response->flags = 0;
+      response->size = sizeof(*response);
+      response->messageType = DataProtocol::addResponse;
+      response->requestId = add.requestId;
+      break;
+    }
+  }
 }
 
 void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
@@ -167,7 +170,7 @@ void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
   case DataProtocol::QueryRequest::byId:
     {
       if(!tableFile.get(query.param, responseBuffer, sizeof(DataProtocol::Header)))
-        return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
+        return sendErrorResponse(query.requestId, DataProtocol::Error::entityNotFound);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = 0;
       response->messageType = DataProtocol::queryResponse;

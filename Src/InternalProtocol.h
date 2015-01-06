@@ -8,9 +8,7 @@ class InternalProtocol
 public:
   enum MessageType
   {
-    loginResponse = DataProtocol::numOfMessageTypes,
-    createTableRequest,
-    createTableResponse,
+    loginResponse = DataProtocol::numOfMessageTypes, // todo: remove this
     numOfMessageTypes
   };
   
