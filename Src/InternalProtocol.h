@@ -6,12 +6,6 @@
 class InternalProtocol
 {
 public:
-  enum MessageType
-  {
-    loginResponse = DataProtocol::numOfMessageTypes, // todo: remove this
-    numOfMessageTypes
-  };
-  
   struct LoginResponse : public DataProtocol::LoginResponse
   {
     byte_t signature[32];

@@ -320,7 +320,7 @@ void_t ClientHandler::handleWorkerJob(WorkerJob& workerJob)
   DataProtocol::Header* header = (DataProtocol::Header*)(const byte_t*)workerJob.getResponseData();
   switch(header->messageType)
   {
-  case InternalProtocol::MessageType::loginResponse:
+  case DataProtocol::loginResponse:
     handleInternalLoginResponse((InternalProtocol::LoginResponse&)*header);
     break;
   default:

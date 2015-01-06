@@ -90,7 +90,7 @@ void_t WorkerThread::handleLogin(const DataProtocol::Header& header)
   InternalProtocol::LoginResponse* response = (InternalProtocol::LoginResponse*)(byte_t*)responseBuffer;
   response->flags = 0;
   response->size = sizeof(*response);
-  response->messageType = InternalProtocol::loginResponse;
+  response->messageType = DataProtocol::loginResponse;
   response->requestId = header.requestId;
   Memory::copy(&response->pwSalt, &user->pwSalt, sizeof(user->pwSalt));
   for(uint16_t* i = (uint16_t*)response->authSalt, * end = (uint16_t*)(response->authSalt + sizeof(response->authSalt)); i < end; ++i)
