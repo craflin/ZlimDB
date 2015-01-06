@@ -101,16 +101,10 @@ void_t ClientHandler::handleLogin(const DataProtocol::LoginRequest& login)
 {
   String userName;
   if(!DataProtocol::getString(login, sizeof(DataProtocol::LoginRequest), login.userNameSize, userName))
-  {
-    sendErrorResponse(login.requestId, DataProtocol::invalidMessageSize);
-    return;
-  }
+    return sendErrorResponse(login.requestId, DataProtocol::invalidData);
   Table* table = serverHandler.findTable(String("users/") + userName + "/.user");
   if(!table)
-  {
-    sendErrorResponse(login.requestId, DataProtocol::invalidLogin);
-    return;
-  }
+    return sendErrorResponse(login.requestId, DataProtocol::invalidLogin);
   serverHandler.createWorkerJob(*this, *table, &login, sizeof(login));
 }
 
@@ -140,13 +134,14 @@ void_t ClientHandler::handleAdd(const DataProtocol::AddRequest& add)
     return sendErrorResponse(add.requestId, DataProtocol::invalidRequest);
   case DataProtocol::tablesTable:
     if(add.size < sizeof(add) + sizeof(DataProtocol::Table))
-      sendErrorResponse(add.requestId, DataProtocol::invalidMessageSize);
+      return sendErrorResponse(add.requestId, DataProtocol::invalidMessageSize);
     else
     {
       // get table name
       String tableName;
       const DataProtocol::Table* tableEntity = (const DataProtocol::Table*)(&add + 1);
-      DataProtocol::getString(add, *tableEntity, sizeof(*tableEntity), tableEntity->nameSize, tableName);
+      if(!DataProtocol::getString(add, *tableEntity, sizeof(*tableEntity), tableEntity->nameSize, tableName))
+        return sendErrorResponse(add.requestId, DataProtocol::invalidData);
 
       // create table without opening the file
       Table* table = serverHandler.findTable(tableName);
