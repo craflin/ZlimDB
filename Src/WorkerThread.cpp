@@ -151,10 +151,10 @@ void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
       if(query.param == 0)
       {
         if(!tableFile.getFirstCompressedBlock(blockId, responseBuffer, sizeof(DataProtocol::Header)))
-          return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
+          return sendErrorResponse(query.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       }
       else if(!tableFile.getNextCompressedBlock(query.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
-        return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
+        return sendErrorResponse(query.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = DataProtocol::Header::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
@@ -170,7 +170,8 @@ void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
   case DataProtocol::QueryRequest::byId:
     {
       if(!tableFile.get(query.param, responseBuffer, sizeof(DataProtocol::Header)))
-        return sendErrorResponse(query.requestId, DataProtocol::Error::entityNotFound);
+        // todo: distinguish between "not found" and "file io error"
+        return sendErrorResponse(query.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = 0;
       response->messageType = DataProtocol::queryResponse;
@@ -182,7 +183,7 @@ void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
     {
       uint64_t blockId;
       if(!tableFile.getCompressedBlock(query.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
-        return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
+        return sendErrorResponse(query.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = DataProtocol::Header::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
@@ -200,7 +201,7 @@ void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
     {
       uint64_t blockId;
       if(!tableFile.getCompressedBlockByTime(query.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
-        return sendErrorResponse(query.requestId, DataProtocol::Error::couldNotReadFile);
+        return sendErrorResponse(query.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = DataProtocol::Header::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))

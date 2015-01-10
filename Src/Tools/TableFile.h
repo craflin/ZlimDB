@@ -16,10 +16,23 @@ public:
   };
 #pragma pack(pop)
 
+  enum Error
+  {
+    noError,
+    fileError,
+    dataError,
+    notFoundError,
+    argumentError,
+  };
+
 public:
+  TableFile() : lastError(noError) {}
+
+  Error getLastError() const {return lastError;}
+
   bool_t create(const String& file);
   bool_t open(const String& file);
-  void_t close();
+  void_t close() {file2.close();}
   bool_t add(const DataHeader& data);
   bool_t remove(uint64_t id);
   bool_t get(uint64_t id, Buffer& data, size_t dataOffset);
@@ -50,7 +63,7 @@ private:
 #pragma pack(pop)
 
 private:
-  File file;
+  File file2;
   FileHeader fileHeader;
   Buffer keys;
   ssize_t uncompressedBlockIndex;
@@ -59,8 +72,12 @@ private:
   Buffer currentBlock;
   uint64_t lastId;
   uint64_t lastTimestamp;
+  Error lastError;
 
-  bool_t increaseIndicesSize();
+  bool_t fileWrite(const void_t* buffer, size_t size);
+  bool_t fileRead(void_t* buffer, size_t size);
+  bool_t fileSeek(uint64_t position);
+
   const Key* findBlockKey(uint64_t id);
   const Key* findBlockKeyByTime(uint64_t timestamp);
   bool_t getCompressedBlock(const Key* key, Buffer& data, size_t dataOffset);
