@@ -3,6 +3,7 @@
 
 #include <nstd/Debug.h>
 #include <nstd/Error.h>
+#include <nstd/Time.h>
 
 #include "TableFile.h"
 
@@ -274,7 +275,10 @@ bool_t TableFile::add(const DataHeader& data)
     case #2.2 currentBlockSize + sampleSize <= blockSize
 */
 
-  if(data.id <= lastId || data.timestamp < lastTimestamp)
+  uint64_t id = data.id ? data.id : lastId + 1;
+  uint64_t timestamp = data.timestamp ? data.timestamp : Time::time();
+
+  if(id <= lastId || timestamp < lastTimestamp)
     return lastError = argumentError, false;
   if(data.size < sizeof(DataHeader))
     return lastError = argumentError, false;
@@ -288,6 +292,8 @@ bool_t TableFile::add(const DataHeader& data)
       currentBlock.resize(uncompressedBlockKey.size + data.size);
       DataHeader* dataHeader = (DataHeader*)((byte_t*)currentBlock + uncompressedBlockKey.size);
       Memory::copy(dataHeader, &data, data.size);
+      dataHeader->id = id;
+      dataHeader->timestamp = timestamp;
       uint64_t position = uncompressedBlockKey.position + ((const byte_t*)dataHeader) - (const byte_t*)currentBlock;
       if(!fileSeek(position))
         return false;
@@ -301,6 +307,8 @@ bool_t TableFile::add(const DataHeader& data)
       if(!fileWrite(&newKey, sizeof(newKey)))
         return false;
       uncompressedBlockKey.size = newKey.size;
+      lastId = id;
+      lastTimestamp = timestamp;
       return lastError = noError, true;
     }
   }
@@ -397,6 +405,8 @@ bool_t TableFile::add(const DataHeader& data)
     currentBlock.resize(uncompressedBlockSize);
     DataHeader* dataHeader = (DataHeader*)(byte_t*)currentBlock;
     Memory::copy(dataHeader, &data, data.size);
+    dataHeader->id = id;
+    dataHeader->timestamp = timestamp;
     Buffer compressedBuffer(sizeof(uint16_t) + LZ4_compressBound(uncompressedBlockSize));
     int_t blockSize = sizeof(uint16_t) + LZ4_compress((const char*)dataHeader, (char*)(byte_t*)compressedBuffer + sizeof(uint16_t), uncompressedBlockSize);
     *(int16_t*)(byte_t*)compressedBuffer = uncompressedBlockSize;
@@ -409,7 +419,7 @@ bool_t TableFile::add(const DataHeader& data)
       return false;
 
     // create new key
-    Key key = {data.id, data.timestamp, fileSize, blockSize};
+    Key key = {id, timestamp, fileSize, blockSize};
     uint64_t position = sizeof(FileHeader) + fileHeader.keyCount * sizeof(Key);
     if(!fileSeek(position))
       return false;
@@ -432,6 +442,8 @@ bool_t TableFile::add(const DataHeader& data)
     currentBlock.resize(data.size);
     DataHeader* dataHeader = (DataHeader*)(byte_t*)currentBlock;
     Memory::copy(dataHeader, &data, data.size);
+    dataHeader->id = id;
+    dataHeader->timestamp = timestamp;
     uint64_t position = sizeof(FileHeader) + fileHeader.keySize;
     if(!fileSeek(position))
       return false;
@@ -439,7 +451,7 @@ bool_t TableFile::add(const DataHeader& data)
       return false;
 
     // create new current block key
-    Key key = {data.id, data.timestamp, position, dataHeader->size};
+    Key key = {id, timestamp, position, dataHeader->size};
     position = sizeof(FileHeader) + fileHeader.keyCount * sizeof(Key);
     if(!fileSeek(position))
       return false;
@@ -455,6 +467,8 @@ bool_t TableFile::add(const DataHeader& data)
     fileHeader.keyCount = newHeader.keyCount;
     keys.append((const byte_t*)&key, sizeof(key));
   }
+  lastId = id;
+  lastTimestamp = timestamp;
   return lastError = noError, true;
 }
 
