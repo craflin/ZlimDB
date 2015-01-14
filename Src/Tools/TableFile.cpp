@@ -330,12 +330,14 @@ bool_t TableFile::add(const DataHeader& data)
 
     // update key of uncompressed block
     Key newKey = uncompressedBlockKey;
+    newKey.position = fileSize;
     newKey.size = blockSize;
     uint64_t position = sizeof(FileHeader) + (const byte_t*)&uncompressedBlockKey - (const byte_t*)keys;
     if(!fileSeek(position))
       return false;
     if(!fileWrite(&newKey, sizeof(newKey)))
       return false;
+    uncompressedBlockKey = newKey;
 
     // update file size, firstCompressedBlockIndex and uncompressedBlockIndex
     fileSize += blockSize;
