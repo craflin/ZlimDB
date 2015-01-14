@@ -230,7 +230,8 @@ bool_t TableFile::getFirstCompressedBlock(uint64_t& blockId, Buffer& data, size_
   if(keys.isEmpty())
   {
     blockId = 0;
-    data.resize(dataOffset);
+    data.resize(dataOffset + sizeof(uint16_t));
+    *(uint16_t*)((byte_t*)data + dataOffset) = 0;
     return lastError = noError, true;
   }
   const Key* firstKey = (const Key*)(const byte_t*)keys;
