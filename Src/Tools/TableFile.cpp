@@ -349,7 +349,7 @@ bool_t TableFile::add(const DataHeader& data)
   }
 
   // ensure index is not full
-  while((keys.size() + 1) * sizeof(Key) > fileHeader.keySize)
+  while(keys.size() + sizeof(Key) > fileHeader.keySize)
   {
     // copy first compressed block to end of file
     ASSERT(firstCompressedBlockIndex >= 0);
@@ -436,6 +436,7 @@ bool_t TableFile::add(const DataHeader& data)
       return false;
     fileHeader.keyCount = newHeader.keyCount;
     keys.append((const byte_t*)&key, sizeof(key));
+    fileSize += blockSize;
   }
 
   // add data to new uncompressed block

@@ -25,7 +25,7 @@ size_t ClientHandler::handle(byte_t* data, size_t size)
     if(size < sizeof(DataProtocol::Header))
       break;
     DataProtocol::Header* header = (DataProtocol::Header*)pos;
-    if(header->size < sizeof(DataProtocol::Header) || header->size >= 5000)
+    if(header->size < sizeof(DataProtocol::Header) || header->size >= sizeof(DataProtocol::AddRequest) + 0xffff)
     {
       client.close();
       return 0;
