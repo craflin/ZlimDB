@@ -6,7 +6,6 @@
 
 #include "Tools/Server.h"
 
-#include "Channel.h"
 #include "DataProtocol.h"
 #include "InternalProtocol.h"
 
