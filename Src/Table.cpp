@@ -7,7 +7,10 @@
 
 bool_t Table::open()
 {
-  return tableFile.open(name);
+  if(!tableFile.open(name))
+    return false;
+  lastEntityId = tableFile.getLastId();
+  return true;
 }
 
 bool_t Table::create(const DataProtocol::Entity* entity)
@@ -23,6 +26,7 @@ bool_t Table::create(const DataProtocol::Entity* entity)
     tableFile.close();
     return false;
   }
+  lastEntityId = 0;
   return true;
 }
 

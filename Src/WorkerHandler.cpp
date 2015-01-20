@@ -44,17 +44,17 @@ size_t WorkerHandler::handle(byte_t* data, size_t size)
 
 void_t WorkerHandler::handleWorkerJob(WorkerJob& workerJob)
 {
-  if(workerJob.isValid())
+  ClientHandler* clientHandler = workerJob.getClientHandler();
+  if(clientHandler)
   {
+    clientHandler->handleWorkerJob(workerJob);
     bool finished = (((const DataProtocol::Header*)(const byte_t*)workerJob.getResponseData())->flags & DataProtocol::Header::fragmented) == 0;
-    ClientHandler& clientHandler = workerJob.getClientHandler();
-    clientHandler.handleWorkerJob(workerJob);
     if(finished)
       serverHandler.removeWorkerJob(workerJob);
-    else if(!clientHandler.isSuspended())
+    else if(!clientHandler->isSuspended())
       workerJob.getTable().getWorkerHandler()->continueWorkerJob(workerJob);
     else
-      clientHandler.suspendWorkerJob(workerJob);
+      clientHandler->suspendWorkerJob(workerJob);
   }
   else
     serverHandler.removeWorkerJob(workerJob);

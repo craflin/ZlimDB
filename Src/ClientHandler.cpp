@@ -8,13 +8,26 @@
 #include "WorkerHandler.h"
 #include "InternalProtocol.h"
 #include "Table.h"
+#include "Subscription.h"
 
 Buffer ClientHandler::buffer;
 
 ClientHandler::~ClientHandler()
 {
   for(HashSet<WorkerJob*>::Iterator i = openWorkerJobs.begin(), end = openWorkerJobs.end(); i != end; ++i)
-    (*i)->invalidate();
+    (*i)->detachClientHandler(); // invalidate
+  for(HashSet<WorkerJob*>::Iterator i = suspendedWorkerJobs.begin(), end = suspendedWorkerJobs.end(); i != end; ++i)
+  {
+    WorkerJob* workerJob = *i;
+    workerJob->detachClientHandler();
+    serverHandler.removeWorkerJob(*workerJob);
+  }
+  for(HashMap<Table*, Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+  {
+    Subscription* subscription = *i;
+    subscription->detachClientHandler();
+    serverHandler.removeSubscription(*subscription);
+  }
 }
 
 size_t ClientHandler::handle(byte_t* data, size_t size)
@@ -39,7 +52,7 @@ size_t ClientHandler::handle(byte_t* data, size_t size)
   return pos - data;
 }
 
-void_t ClientHandler::handleMessage(const DataProtocol::Header& header)
+void_t ClientHandler::handleMessage(DataProtocol::Header& header)
 {
   switch((DataProtocol::MessageType)header.messageType)
   {
@@ -57,7 +70,7 @@ void_t ClientHandler::handleMessage(const DataProtocol::Header& header)
     break;
   case DataProtocol::addRequest:
     if(header.size >= sizeof(DataProtocol::AddRequest))
-      handleAdd((const DataProtocol::AddRequest&)header);
+      handleAdd((DataProtocol::AddRequest&)header);
     else
       sendErrorResponse(header.requestId, DataProtocol::invalidMessageSize);
     break;
@@ -125,7 +138,7 @@ void_t ClientHandler::handleAuth(const DataProtocol::AuthRequest& auth)
   sendResponse(authResponse);
 }
 
-void_t ClientHandler::handleAdd(const DataProtocol::AddRequest& add)
+void_t ClientHandler::handleAdd(DataProtocol::AddRequest& add)
 {
   switch(add.tableId)
   {
@@ -154,14 +167,34 @@ void_t ClientHandler::handleAdd(const DataProtocol::AddRequest& add)
     }
     break;
   default:
+    if(add.size < sizeof(add) + sizeof(DataProtocol::Entity))
+      return sendErrorResponse(add.requestId, DataProtocol::invalidMessageSize);
+    else
     {
       // find table
       Table* table = serverHandler.findTable(add.tableId);
       if(!table)
         return sendErrorResponse(add.requestId, DataProtocol::tableNotFound);
 
+      // create id and timestamp?
+      DataProtocol::Entity* entity = (DataProtocol::Entity*)(&add + 1);
+      if(entity->id == 0)
+        entity->id = table->getLastEntityId() + 1;
+      if(entity->time == 0)
+        entity->time = Time::time();
+      table->setLastEntityId(entity->id);
+
       // create job to add entity
       serverHandler.createWorkerJob(*this, *table, &add, add.size);
+
+      // notify subscribers
+      HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+      {
+        Subscription* subscription = *i;
+        if(subscription->isSynced())
+          subscription->getClientHandler()->client.send((const byte_t*)&add, add.size);
+      }
     }
     break;
   }
@@ -182,6 +215,14 @@ void_t ClientHandler::handleUpdate(const DataProtocol::UpdateRequest& update)
         return sendErrorResponse(update.requestId, DataProtocol::tableNotFound);
 
       serverHandler.createWorkerJob(*this, *table, &update, update.size);
+
+      // notify subscribers
+      HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+      {
+        Subscription* subscription = *i;
+        subscription->getClientHandler()->client.send((const byte_t*)&update, update.size);
+      }
     }
     break;
   }
@@ -203,6 +244,14 @@ void_t ClientHandler::handleRemove(const DataProtocol::RemoveRequest& remove)
         return sendErrorResponse(remove.requestId, DataProtocol::tableNotFound);
 
       serverHandler.createWorkerJob(*this, *table, &remove, remove.size);
+
+      // notify subscribers
+      HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+      {
+        Subscription* subscription = *i;
+        subscription->getClientHandler()->client.send((const byte_t*)&remove, remove.size);
+      }
     }
     break;
   }
@@ -210,12 +259,43 @@ void_t ClientHandler::handleRemove(const DataProtocol::RemoveRequest& remove)
 
 void_t ClientHandler::handleSubscribe(const DataProtocol::SubscribeRequest& subscribe)
 {
-  // todo
+  Table* table = serverHandler.findTable(subscribe.tableId);
+  if(!table)
+    return sendErrorResponse(subscribe.requestId, DataProtocol::tableNotFound);
+  if(subscriptions.contains(table))
+    return sendOkResponse(DataProtocol::subscribeResponse, subscribe.requestId);
+  Subscription& subscription = serverHandler.createSubscription(*this, *table);
+  if(table->getLastEntityId() == 0)
+    subscription.setSynced();
+  else
+  {
+    serverHandler.createWorkerJob(*this, *table, &subscribe, sizeof(subscribe));
+  }
+  /*
+  wie bekomme ich dies richtig synchronisiert?
+    - daten über worker thread requesten
+    - wenn bei der reponse die letzte id gleich der neusten id, dann wirklich subscriben
+    - woher weis ich, welches die wirklich neuste id ist?
+      - die neuste id wird beim öffnen der table datei bestimmt
+      - die neuste id ist diejenige für die zuletzt ein add job erstellt wurde
+      - damit darf ich keine ids mehr im worker thread erstellen, da ich diese vorweg kennen muss
+
+  was ist, wenn beim requesten der vorhandenen daten etwas manipuliert wird?
+    - über die last replayed id kann ich bestimmen, ob relevant oder nicht
+      - ne nicht wirklich, da daten in der queue sein können
+    - also muss ich alle änderung übertragen, was die gefahr birgt, dass der client damit nichts anfangen kann.. egal?
+    */
 }
 
 void_t ClientHandler::handleUnsubscribe(const DataProtocol::UnsubscribeRequest& unsubscribe)
 {
-  // todo
+  Table* table = serverHandler.findTable(unsubscribe.tableId);
+  if(!table)
+    return sendErrorResponse(unsubscribe.requestId, DataProtocol::subscriptionNotFound);
+  HashMap<Table*, Subscription*>::Iterator it = subscriptions.find(table);
+  if(it == subscriptions.end())
+    return sendErrorResponse(unsubscribe.requestId, DataProtocol::subscriptionNotFound);
+  serverHandler.removeSubscription(**it);
 }
 
 void_t ClientHandler::handleQuery(const DataProtocol::QueryRequest& query)
@@ -304,6 +384,15 @@ void_t ClientHandler::sendErrorResponse(uint32_t requestId, DataProtocol::Error 
   client.send((const byte_t*)&response, sizeof(response));
 }
 
+void_t ClientHandler::sendOkResponse(DataProtocol::MessageType type, uint32_t requestId)
+{
+  DataProtocol::Header response;
+  response.size = sizeof(response);
+  response.messageType = DataProtocol::errorResponse;
+  response.requestId = requestId;
+  sendResponse(response);
+}
+
 void_t ClientHandler::sendResponse(DataProtocol::Header& header)
 {
   header.flags = 0;
@@ -317,6 +406,9 @@ void_t ClientHandler::handleWorkerJob(WorkerJob& workerJob)
   {
   case DataProtocol::loginResponse:
     handleInternalLoginResponse((InternalProtocol::LoginResponse&)*header);
+    break;
+  case DataProtocol::subscribeResponse:
+    handleInternalSubscribeResponse(workerJob, (DataProtocol::Header&)*header);
     break;
   default:
     if(!client.send((const byte_t*)header, header->size))
@@ -343,6 +435,16 @@ void_t ClientHandler::resume()
   suspendedWorkerJobs.clear();
 }
 
+void_t ClientHandler::addSubscription(Subscription& subscription)
+{
+  subscriptions.append(&subscription.getTable(), &subscription);
+}
+
+void_t ClientHandler::removeSubscription(Subscription& subscription)
+{
+  subscriptions.remove(&subscription.getTable());
+}
+
 void_t ClientHandler::handleInternalLoginResponse(const InternalProtocol::LoginResponse& loginResponse)
 {
   Memory::copy(&signature, &loginResponse.signature, sizeof(signature));
@@ -355,4 +457,34 @@ void_t ClientHandler::handleInternalLoginResponse(const InternalProtocol::LoginR
   Memory::copy(&response.pwSalt, &loginResponse.pwSalt, sizeof(response.pwSalt));
   Memory::copy(&response.authSalt, &loginResponse.authSalt, sizeof(response.authSalt));
   client.send((const byte_t*)&response, sizeof(response));
+}
+
+void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, const DataProtocol::Header& subscribeResponse)
+{
+  client.send((const byte_t*)&subscribeResponse, subscribeResponse.size);
+  bool finished = (subscribeResponse.flags & DataProtocol::Header::fragmented) == 0;
+  if(finished)
+  {
+    const DataProtocol::Entity* entity = (const DataProtocol::Entity*)(&subscribeResponse + 1);
+    uint64_t maxId = entity->id;
+    entity = (const DataProtocol::Entity*)((const byte_t*)entity + entity->size);
+    const DataProtocol::Entity* end = (const DataProtocol::Entity*)((const byte_t*)&subscribeResponse + subscribeResponse.size);
+    for(; entity < end; entity = (const DataProtocol::Entity*)((const byte_t*)entity + entity->size))
+      maxId = entity->id;
+    Table& table = workerJob.getTable();
+    if(maxId != table.getLastEntityId())
+    {
+      Buffer& request = workerJob.getRequestData();
+      serverHandler.createWorkerJob(*this, table, (byte_t*)request, request.size());
+    }
+    else
+    {
+      HashMap<Table*, Subscription*>::Iterator i = subscriptions.find(&table);
+      if(i != subscriptions.end())
+      {
+        Subscription* subscription = *i;
+        subscription->setSynced();
+      }
+    }
+  }
 }

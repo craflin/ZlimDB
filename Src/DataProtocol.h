@@ -49,6 +49,7 @@ public:
     couldNotOpenFile,
     couldNotReadFile,
     couldNotWriteFile,
+    subscriptionNotFound,
     invalidData,
   };
 
@@ -103,12 +104,11 @@ public:
     uint32_t tableId;
   };
 
-  struct QueryRequest : public Header
+  struct SubscribeRequest : public Header
   {
     enum Type
     {
       all,
-      byId,
       sinceId,
       sinceTime,
     };
@@ -118,22 +118,22 @@ public:
     uint64_t param;
   };
 
-  struct SubscribeRequest
+  struct QueryRequest : public SubscribeRequest
   {
-    char_t channel[33];
-    uint64_t maxAge;
-    uint64_t sinceId;
-  };
-  struct SubscribeResponse
-  {
-    uint64_t tableId;
-    //uint32_t flags;
-  };
-  struct UnsubscribeRequest
-  {
+    enum Type
+    {
+      all = SubscribeRequest::all,
+      sinceId = SubscribeRequest::sinceId,
+      sinceTime = SubscribeRequest::sinceTime,
+      byId,
+    };
+
+    Type type;
     uint32_t tableId;
+    uint64_t param;
   };
-  struct UnsubscribeResponse
+
+  struct UnsubscribeRequest : public Header
   {
     uint32_t tableId;
   };

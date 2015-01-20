@@ -10,12 +10,12 @@ class TableFile;
 class WorkerJob
 {
 public:
-  WorkerJob(ClientHandler& clientHandler, Table& table, TableFile& tableFile, const void* request, size_t size) : valid(true), clientHandler(clientHandler), table(table), tableFile(tableFile), requestBuffer((const byte_t*)request, size) {}
+  WorkerJob(ClientHandler& clientHandler, Table& table, TableFile& tableFile, const void* request, size_t size) : clientHandler(&clientHandler), table(table), tableFile(tableFile), requestBuffer((const byte_t*)request, size) {}
 
-  void_t invalidate() {valid = false;}
-  bool_t isValid() const {return valid;}
+  void_t detachClientHandler() {clientHandler = 0;}
+  bool_t isValid() const {return clientHandler != 0;}
 
-  ClientHandler& getClientHandler() {return clientHandler;}
+  ClientHandler* getClientHandler() {return clientHandler;}
   Table& getTable() {return table;}
   const Buffer& getRequestData() const {return requestBuffer;}
   Buffer& getRequestData() {return requestBuffer;}
@@ -25,7 +25,7 @@ public:
 
 private:
   bool_t valid;
-  ClientHandler& clientHandler;
+  ClientHandler* clientHandler;
   Table& table;
   TableFile& tableFile;
   Buffer requestBuffer;

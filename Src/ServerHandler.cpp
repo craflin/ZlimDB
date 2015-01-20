@@ -11,6 +11,7 @@
 #include "WorkerHandler.h"
 #include "WorkerThread.h"
 #include "Table.h"
+#include "Subscription.h"
 
 ServerHandler::ServerHandler(Server& server) : server(server), nextTableId(DataProtocol::numOfTableIds) {}
 
@@ -216,10 +217,11 @@ WorkerJob& ServerHandler::createWorkerJob(ClientHandler& clientHandler, Table& t
 void_t ServerHandler::removeWorkerJob(WorkerJob& workerJob)
 {
   Table& table = workerJob.getTable();
-  ClientHandler& clientHandler = workerJob.getClientHandler();
+  ClientHandler* clientHandler = workerJob.getClientHandler();
   WorkerHandler& workerHandler = *table.getWorkerHandler();
   table.removeWorkerJob(workerJob);
-  clientHandler.removeWorkerJob(workerJob);
+  if(clientHandler)
+    clientHandler->removeWorkerJob(workerJob);
   workerHandler.removeWorkerJob(workerJob);
   decreaseWorkerHandlerRank(workerHandler);
   if(table.getLoad() == 0)
@@ -229,4 +231,21 @@ void_t ServerHandler::removeWorkerJob(WorkerJob& workerJob)
       removeTable(table);
   }
   delete &workerJob;
+}
+
+Subscription& ServerHandler::createSubscription(ClientHandler& clientHandler, Table& table)
+{
+  Subscription& subscription = *new Subscription(clientHandler, table);
+  clientHandler.addSubscription(subscription);
+  table.addSubscription(subscription);
+  return subscription;
+}
+
+void_t ServerHandler::removeSubscription(Subscription& subscription)
+{
+  ClientHandler* clientHandler = subscription.getClientHandler();
+  if(clientHandler)
+    clientHandler->removeSubscription(subscription);
+  subscription.getTable().removeSubscription(subscription);
+  delete &subscription;
 }

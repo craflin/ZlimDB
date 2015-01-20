@@ -8,14 +8,15 @@
 #include "Tools/TableFile.h"
 
 #include "DataProtocol.h"
-#include "WorkerJob.h"
 
+class WorkerJob;
 class WorkerHandler;
+class Subscription;
 
 class Table
 {
 public:
-  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0) {}
+  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), lastEntityId(0) {}
 
   uint32_t getId() const {return id;}
   const String& getName() const {return name;}
@@ -24,6 +25,9 @@ public:
   bool_t open();
   bool_t create(const DataProtocol::Entity* entity);
   TableFile& getTableFile() {return tableFile;}
+
+  uint64_t getLastEntityId() const {return lastEntityId;}
+  void_t setLastEntityId(uint64_t entityId) {lastEntityId = entityId;}
 
   uint32_t getEntitySize() const;
   void_t getEntity(DataProtocol::Table& entity) const;
@@ -34,6 +38,10 @@ public:
   void_t addWorkerJob(WorkerJob& workerJob) {openWorkerJobs.append(&workerJob);}
   void_t removeWorkerJob(WorkerJob& workerJob) {openWorkerJobs.remove(&workerJob);}
 
+  void_t addSubscription(Subscription& subscription) {subscriptions.append(&subscription);}
+  void_t removeSubscription(Subscription& subscription) {subscriptions.remove(&subscription);}
+  HashSet<Subscription*>& getSubscriptions() {return subscriptions;}
+
 private:
   uint32_t id;
   bool valid;
@@ -42,4 +50,6 @@ private:
   HashSet<WorkerJob*> openWorkerJobs;
   WorkerHandler* workerHandler;
   TableFile tableFile;
+  uint64_t lastEntityId;
+  HashSet<Subscription*> subscriptions;
 };

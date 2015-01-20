@@ -13,6 +13,7 @@ class WorkerHandler;
 class WorkerThread;
 class Table;
 class User;
+class Subscription;
 
 class ServerHandler : public Server::Listener
 {
@@ -33,6 +34,9 @@ public:
 
   WorkerJob& createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size);
   void_t removeWorkerJob(WorkerJob& workerJob);
+
+  Subscription& createSubscription(ClientHandler& clientHandler, Table& table);
+  void_t removeSubscription(Subscription& subscription);
 
 private:
   void_t decreaseWorkerHandlerRank(WorkerHandler& workerHandler);

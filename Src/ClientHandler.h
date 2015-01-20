@@ -2,6 +2,7 @@
 #pragma once
 
 #include <nstd/HashSet.h>
+#include <nstd/HashMap.h>
 #include <nstd/Buffer.h>
 
 #include "Tools/Server.h"
@@ -11,6 +12,8 @@
 
 class ServerHandler;
 class WorkerJob;
+class Subscription;
+class Table;
 
 class ClientHandler : public Server::Client::Listener
 {
@@ -28,6 +31,9 @@ public:
   void_t suspend();
   void_t resume();
 
+  void_t addSubscription(Subscription& subscription);
+  void_t removeSubscription(Subscription& subscription);
+
 private:
   static Buffer buffer;
   byte_t signature[32];
@@ -38,16 +44,17 @@ private:
   HashSet<WorkerJob*> openWorkerJobs;
   HashSet<WorkerJob*> suspendedWorkerJobs;
   bool_t suspended;
+  HashMap<Table*, Subscription*> subscriptions;
 
 private: // Server::Client::Listener
   virtual size_t handle(byte_t* data, size_t size);
   virtual void_t write() {resume();}
 
 private: 
-  void_t handleMessage(const DataProtocol::Header& header);
+  void_t handleMessage(DataProtocol::Header& header);
   void_t handleLogin(const DataProtocol::LoginRequest& login);
   void_t handleAuth(const DataProtocol::AuthRequest& auth);
-  void_t handleAdd(const DataProtocol::AddRequest& add);
+  void_t handleAdd(DataProtocol::AddRequest& add);
   void_t handleUpdate(const DataProtocol::UpdateRequest& update);
   void_t handleRemove(const DataProtocol::RemoveRequest& remove);
   void_t handleSubscribe(const DataProtocol::SubscribeRequest& subscribe);
@@ -55,7 +62,9 @@ private:
   void_t handleQuery(const DataProtocol::QueryRequest& query);
 
   void_t handleInternalLoginResponse(const InternalProtocol::LoginResponse& loginResponse);
+  void_t handleInternalSubscribeResponse(WorkerJob& workerJob, const DataProtocol::Header& subscribeResponse);
 
   void_t sendErrorResponse(uint32_t requestId, DataProtocol::Error error);
+  void_t sendOkResponse(DataProtocol::MessageType type,uint32_t requestId);
   void_t sendResponse(DataProtocol::Header& header);
 };

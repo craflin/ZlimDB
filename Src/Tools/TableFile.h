@@ -33,6 +33,7 @@ public:
   bool_t create(const String& file);
   bool_t open(const String& file);
   void_t close() {file2.close();}
+  uint64_t getLastId() const {return lastId;}
   bool_t add(const DataHeader& data);
   bool_t remove(uint64_t id);
   bool_t get(uint64_t id, Buffer& data, size_t dataOffset);
