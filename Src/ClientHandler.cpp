@@ -54,58 +54,58 @@ size_t ClientHandler::handle(byte_t* data, size_t size)
 
 void_t ClientHandler::handleMessage(DataProtocol::Header& header)
 {
-  switch((DataProtocol::MessageType)header.messageType)
+  switch((DataProtocol::MessageType)header.message_type)
   {
   case DataProtocol::loginRequest:
     if(header.size >= sizeof(DataProtocol::LoginRequest))
       handleLogin((const DataProtocol::LoginRequest&)header);
     else
-      sendErrorResponse(header.requestId, DataProtocol::invalidMessageSize);
+      sendErrorResponse(header.request_id, DataProtocol::invalidMessageSize);
     break;
   case DataProtocol::authRequest:
     if(header.size >= sizeof(DataProtocol::AuthRequest))
       handleAuth((const DataProtocol::AuthRequest&)header);
     else
-      sendErrorResponse(header.requestId, DataProtocol::invalidMessageSize);
+      sendErrorResponse(header.request_id, DataProtocol::invalidMessageSize);
     break;
   case DataProtocol::addRequest:
     if(header.size >= sizeof(DataProtocol::AddRequest))
       handleAdd((DataProtocol::AddRequest&)header);
     else
-      sendErrorResponse(header.requestId, DataProtocol::invalidMessageSize);
+      sendErrorResponse(header.request_id, DataProtocol::invalidMessageSize);
     break;
   case DataProtocol::updateRequest:
     if(header.size >= sizeof(DataProtocol::UpdateRequest))
       handleUpdate((const DataProtocol::UpdateRequest&)header);
     else
-      sendErrorResponse(header.requestId, DataProtocol::invalidMessageSize);
+      sendErrorResponse(header.request_id, DataProtocol::invalidMessageSize);
     break;
   case DataProtocol::removeRequest:
     if(header.size >= sizeof(DataProtocol::RemoveRequest))
       handleRemove((const DataProtocol::RemoveRequest&)header);
     else
-      sendErrorResponse(header.requestId, DataProtocol::invalidMessageSize);
+      sendErrorResponse(header.request_id, DataProtocol::invalidMessageSize);
     break;
   case DataProtocol::subscribeRequest:
     if(header.size >= sizeof(DataProtocol::SubscribeRequest))
       handleSubscribe((const DataProtocol::SubscribeRequest&)header);
     else
-      sendErrorResponse(header.requestId, DataProtocol::invalidMessageSize);
+      sendErrorResponse(header.request_id, DataProtocol::invalidMessageSize);
     break;
   case DataProtocol::unsubscribeRequest:
     if(header.size >= sizeof(DataProtocol::UnsubscribeRequest))
       handleUnsubscribe((const DataProtocol::UnsubscribeRequest&)header);
     else
-      sendErrorResponse(header.requestId, DataProtocol::invalidMessageSize);
+      sendErrorResponse(header.request_id, DataProtocol::invalidMessageSize);
     break;
   case DataProtocol::queryRequest:
     if(header.size >= sizeof(DataProtocol::QueryRequest))
       handleQuery((const DataProtocol::QueryRequest&)header);
     else
-      sendErrorResponse(header.requestId, DataProtocol::invalidMessageSize);
+      sendErrorResponse(header.request_id, DataProtocol::invalidMessageSize);
     break;
   default:
-    sendErrorResponse(header.requestId, DataProtocol::invalidMessageType);
+    sendErrorResponse(header.request_id, DataProtocol::invalidMessageType);
     break;
   }
 }
@@ -113,11 +113,11 @@ void_t ClientHandler::handleMessage(DataProtocol::Header& header)
 void_t ClientHandler::handleLogin(const DataProtocol::LoginRequest& login)
 {
   String userName;
-  if(!DataProtocol::getString(login, sizeof(DataProtocol::LoginRequest), login.userNameSize, userName))
-    return sendErrorResponse(login.requestId, DataProtocol::invalidData);
+  if(!DataProtocol::getString(login.header, sizeof(DataProtocol::LoginRequest), login.user_name_size, userName))
+    return sendErrorResponse(login.header.request_id, DataProtocol::invalidData);
   Table* table = serverHandler.findTable(String("users/") + userName + "/.user");
   if(!table)
-    return sendErrorResponse(login.requestId, DataProtocol::invalidLogin);
+    return sendErrorResponse(login.header.request_id, DataProtocol::invalidLogin);
   serverHandler.createWorkerJob(*this, *table, &login, sizeof(login));
 }
 
@@ -127,54 +127,54 @@ void_t ClientHandler::handleAuth(const DataProtocol::AuthRequest& auth)
   Memory::zero(&signature, sizeof(signature));
   if(failed)
   {
-    sendErrorResponse(auth.requestId, DataProtocol::Error::invalidLogin);
+    sendErrorResponse(auth.header.request_id, DataProtocol::Error::invalidLogin);
     return;
   }
 
   DataProtocol::Header authResponse;
   authResponse.size = sizeof(authResponse);
-  authResponse.messageType = DataProtocol::authResponse;
-  authResponse.requestId = auth.requestId;
+  authResponse.message_type = DataProtocol::authResponse;
+  authResponse.request_id = auth.header.request_id;
   sendResponse(authResponse);
 }
 
 void_t ClientHandler::handleAdd(DataProtocol::AddRequest& add)
 {
-  switch(add.tableId)
+  switch((DataProtocol::TableId)add.table_id)
   {
   case DataProtocol::clientsTable:
   case DataProtocol::timeTable:
-    return sendErrorResponse(add.requestId, DataProtocol::invalidRequest);
+    return sendErrorResponse(add.header.request_id, DataProtocol::invalidRequest);
   case DataProtocol::tablesTable:
-    if(add.size < sizeof(add) + sizeof(DataProtocol::Table))
-      return sendErrorResponse(add.requestId, DataProtocol::invalidMessageSize);
+    if(add.header.size < sizeof(add) + sizeof(DataProtocol::Table))
+      return sendErrorResponse(add.header.request_id, DataProtocol::invalidMessageSize);
     else
     {
       // get table name
       String tableName;
       const DataProtocol::Table* tableEntity = (const DataProtocol::Table*)(&add + 1);
-      if(!DataProtocol::getString(add, *tableEntity, sizeof(*tableEntity), tableEntity->nameSize, tableName))
-        return sendErrorResponse(add.requestId, DataProtocol::invalidData);
+      if(!DataProtocol::getString(add.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
+        return sendErrorResponse(add.header.request_id, DataProtocol::invalidData);
 
       // create table without opening the file
       Table* table = serverHandler.findTable(tableName);
       if(table)
-        return sendErrorResponse(add.requestId, DataProtocol::tableAlreadyExists);
+        return sendErrorResponse(add.header.request_id, DataProtocol::tableAlreadyExists);
       table = &serverHandler.createTable(tableName);
 
       // create internal job to create the file
-      serverHandler.createWorkerJob(*this, *table, &add, add.size);
+      serverHandler.createWorkerJob(*this, *table, &add, add.header.size);
     }
     break;
   default:
-    if(add.size < sizeof(add) + sizeof(DataProtocol::Entity))
-      return sendErrorResponse(add.requestId, DataProtocol::invalidMessageSize);
+    if(add.header.size < sizeof(add) + sizeof(DataProtocol::Entity))
+      return sendErrorResponse(add.header.request_id, DataProtocol::invalidMessageSize);
     else
     {
       // find table
-      Table* table = serverHandler.findTable(add.tableId);
+      Table* table = serverHandler.findTable(add.table_id);
       if(!table)
-        return sendErrorResponse(add.requestId, DataProtocol::tableNotFound);
+        return sendErrorResponse(add.header.request_id, DataProtocol::tableNotFound);
 
       // create id and timestamp?
       DataProtocol::Entity* entity = (DataProtocol::Entity*)(&add + 1);
@@ -185,7 +185,7 @@ void_t ClientHandler::handleAdd(DataProtocol::AddRequest& add)
       table->setLastEntityId(entity->id);
 
       // create job to add entity
-      serverHandler.createWorkerJob(*this, *table, &add, add.size);
+      serverHandler.createWorkerJob(*this, *table, &add, add.header.size);
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
@@ -193,7 +193,7 @@ void_t ClientHandler::handleAdd(DataProtocol::AddRequest& add)
       {
         Subscription* subscription = *i;
         if(subscription->isSynced())
-          subscription->getClientHandler()->client.send((const byte_t*)&add, add.size);
+          subscription->getClientHandler()->client.send((const byte_t*)&add, add.header.size);
       }
     }
     break;
@@ -202,26 +202,26 @@ void_t ClientHandler::handleAdd(DataProtocol::AddRequest& add)
 
 void_t ClientHandler::handleUpdate(const DataProtocol::UpdateRequest& update)
 {
-  switch(update.tableId)
+  switch((DataProtocol::TableId)update.table_id)
   {
   case DataProtocol::clientsTable:
   case DataProtocol::timeTable:
   case DataProtocol::tablesTable:
-    return sendErrorResponse(update.requestId, DataProtocol::invalidRequest);
+    return sendErrorResponse(update.header.request_id, DataProtocol::invalidRequest);
   default:
     {
-      Table* table = serverHandler.findTable(update.tableId);
+      Table* table = serverHandler.findTable(update.table_id);
       if(!table)
-        return sendErrorResponse(update.requestId, DataProtocol::tableNotFound);
+        return sendErrorResponse(update.header.request_id, DataProtocol::tableNotFound);
 
-      serverHandler.createWorkerJob(*this, *table, &update, update.size);
+      serverHandler.createWorkerJob(*this, *table, &update, update.header.size);
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
       for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
       {
         Subscription* subscription = *i;
-        subscription->getClientHandler()->client.send((const byte_t*)&update, update.size);
+        subscription->getClientHandler()->client.send((const byte_t*)&update, update.header.size);
       }
     }
     break;
@@ -230,27 +230,27 @@ void_t ClientHandler::handleUpdate(const DataProtocol::UpdateRequest& update)
 
 void_t ClientHandler::handleRemove(const DataProtocol::RemoveRequest& remove)
 {
-  switch(remove.tableId)
+  switch((DataProtocol::TableId)remove.table_id)
   {
   case DataProtocol::clientsTable:
   case DataProtocol::timeTable:
-    return sendErrorResponse(remove.requestId, DataProtocol::invalidRequest);
+    return sendErrorResponse(remove.header.request_id, DataProtocol::invalidRequest);
   case DataProtocol::tablesTable:
-    return sendErrorResponse(remove.requestId, DataProtocol::notImplemented);
+    return sendErrorResponse(remove.header.request_id, DataProtocol::notImplemented);
   default:
     {
-      Table* table = serverHandler.findTable(remove.tableId);
+      Table* table = serverHandler.findTable(remove.table_id);
       if(!table)
-        return sendErrorResponse(remove.requestId, DataProtocol::tableNotFound);
+        return sendErrorResponse(remove.header.request_id, DataProtocol::tableNotFound);
 
-      serverHandler.createWorkerJob(*this, *table, &remove, remove.size);
+      serverHandler.createWorkerJob(*this, *table, &remove, remove.header.size);
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
       for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
       {
         Subscription* subscription = *i;
-        subscription->getClientHandler()->client.send((const byte_t*)&remove, remove.size);
+        subscription->getClientHandler()->client.send((const byte_t*)&remove, remove.header.size);
       }
     }
     break;
@@ -259,11 +259,11 @@ void_t ClientHandler::handleRemove(const DataProtocol::RemoveRequest& remove)
 
 void_t ClientHandler::handleSubscribe(const DataProtocol::SubscribeRequest& subscribe)
 {
-  Table* table = serverHandler.findTable(subscribe.tableId);
+  Table* table = serverHandler.findTable(subscribe.table_id);
   if(!table)
-    return sendErrorResponse(subscribe.requestId, DataProtocol::tableNotFound);
+    return sendErrorResponse(subscribe.header.request_id, DataProtocol::tableNotFound);
   if(subscriptions.contains(table))
-    return sendOkResponse(DataProtocol::subscribeResponse, subscribe.requestId);
+    return sendOkResponse(DataProtocol::subscribeResponse, subscribe.header.request_id);
   Subscription& subscription = serverHandler.createSubscription(*this, *table);
   if(table->getLastEntityId() == 0)
     subscription.setSynced();
@@ -289,31 +289,31 @@ void_t ClientHandler::handleSubscribe(const DataProtocol::SubscribeRequest& subs
 
 void_t ClientHandler::handleUnsubscribe(const DataProtocol::UnsubscribeRequest& unsubscribe)
 {
-  Table* table = serverHandler.findTable(unsubscribe.tableId);
+  Table* table = serverHandler.findTable(unsubscribe.table_id);
   if(!table)
-    return sendErrorResponse(unsubscribe.requestId, DataProtocol::subscriptionNotFound);
+    return sendErrorResponse(unsubscribe.header.request_id, DataProtocol::subscriptionNotFound);
   HashMap<Table*, Subscription*>::Iterator it = subscriptions.find(table);
   if(it == subscriptions.end())
-    return sendErrorResponse(unsubscribe.requestId, DataProtocol::subscriptionNotFound);
+    return sendErrorResponse(unsubscribe.header.request_id, DataProtocol::subscriptionNotFound);
   serverHandler.removeSubscription(**it);
 }
 
 void_t ClientHandler::handleQuery(const DataProtocol::QueryRequest& query)
 {
-  switch(query.tableId)
+  switch((DataProtocol::TableId)query.table_id)
   {
   case DataProtocol::clientsTable:
-    return sendErrorResponse(query.requestId, DataProtocol::notImplemented);
+    return sendErrorResponse(query.header.request_id, DataProtocol::notImplemented);
   case DataProtocol::tablesTable:
     switch(query.type)
     {
-    case DataProtocol::QueryRequest::all:
+    case DataProtocol::QueryType::all:
       {
         const HashMap<uint32_t, Table*>& tables = serverHandler.getTables();
         buffer.resize(4096);
         DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)buffer;
-        response->messageType = DataProtocol::queryResponse;
-        response->requestId = query.requestId;
+        response->message_type = DataProtocol::queryResponse;
+        response->request_id = query.header.request_id;
         byte_t* start;
         byte_t* pos = start = (byte_t*)response + sizeof(DataProtocol::Header);
         for(HashMap<uint32_t, Table*>::Iterator i = tables.begin(), end = tables.end(); i != end; ++i)
@@ -324,7 +324,7 @@ void_t ClientHandler::handleQuery(const DataProtocol::QueryRequest& query)
           if(reqBufferSize > buffer.size())
           {
             response->size = pos - start;
-            response->flags = DataProtocol::Header::fragmented;
+            response->flags = DataProtocol::HeaderFlag::fragmented;
             client.send(buffer, response->size);
             pos = start;
           }
@@ -336,37 +336,37 @@ void_t ClientHandler::handleQuery(const DataProtocol::QueryRequest& query)
         client.send(buffer, response->size);
       }
       break;
-    case DataProtocol::QueryRequest::byId:
+    case DataProtocol::QueryType::byId:
       {
         const Table* table = serverHandler.findTable((uint32_t)query.param);
         if(!table)
-          return sendErrorResponse(query.requestId, DataProtocol::entityNotFound);
+          return sendErrorResponse(query.header.request_id, DataProtocol::entityNotFound);
         buffer.resize(sizeof(DataProtocol::Header) + table->getEntitySize());
         DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)buffer;
         DataProtocol::Table* tableBuf = (DataProtocol::Table*)((byte_t*)response + sizeof(DataProtocol::Header));
         response->size = sizeof(buffer);
         response->flags = 0;
-        response->messageType = DataProtocol::queryResponse;
-        response->requestId = query.requestId;
+        response->message_type = DataProtocol::queryResponse;
+        response->request_id = query.header.request_id;
         table->getEntity(*tableBuf);
         client.send(buffer, sizeof(buffer));
       }
       break;
-    case DataProtocol::QueryRequest::sinceTime:
-      return sendErrorResponse(query.requestId, DataProtocol::notImplemented);
-    case DataProtocol::QueryRequest::sinceId:
-      return sendErrorResponse(query.requestId, DataProtocol::notImplemented);
+    case DataProtocol::QueryType::sinceTime:
+      return sendErrorResponse(query.header.request_id, DataProtocol::notImplemented);
+    case DataProtocol::QueryType::sinceId:
+      return sendErrorResponse(query.header.request_id, DataProtocol::notImplemented);
     default:
-      return sendErrorResponse(query.requestId, DataProtocol::invalidRequest);
+      return sendErrorResponse(query.header.request_id, DataProtocol::invalidRequest);
     }
     break;
   case DataProtocol::timeTable:
-    return sendErrorResponse(query.requestId, DataProtocol::notImplemented);
+    return sendErrorResponse(query.header.request_id, DataProtocol::notImplemented);
   default:
     {
-      Table* table = serverHandler.findTable(query.tableId);
+      Table* table = serverHandler.findTable(query.table_id);
       if(!table)
-        return sendErrorResponse(query.requestId, DataProtocol::tableNotFound);
+        return sendErrorResponse(query.header.request_id, DataProtocol::tableNotFound);
 
       serverHandler.createWorkerJob(*this, *table, &query, sizeof(query));
     }
@@ -377,9 +377,9 @@ void_t ClientHandler::handleQuery(const DataProtocol::QueryRequest& query)
 void_t ClientHandler::sendErrorResponse(uint32_t requestId, DataProtocol::Error error)
 {
   DataProtocol::ErrorResponse response;
-  response.size = sizeof(response);
-  response.messageType = DataProtocol::errorResponse;
-  response.requestId = requestId;
+  response.header.size = sizeof(response);
+  response.header.message_type = DataProtocol::errorResponse;
+  response.header.request_id = requestId;
   response.error = error;
   client.send((const byte_t*)&response, sizeof(response));
 }
@@ -388,8 +388,8 @@ void_t ClientHandler::sendOkResponse(DataProtocol::MessageType type, uint32_t re
 {
   DataProtocol::Header response;
   response.size = sizeof(response);
-  response.messageType = DataProtocol::errorResponse;
-  response.requestId = requestId;
+  response.message_type = DataProtocol::errorResponse;
+  response.request_id = requestId;
   sendResponse(response);
 }
 
@@ -402,7 +402,7 @@ void_t ClientHandler::sendResponse(DataProtocol::Header& header)
 void_t ClientHandler::handleWorkerJob(WorkerJob& workerJob)
 {
   DataProtocol::Header* header = (DataProtocol::Header*)(const byte_t*)workerJob.getResponseData();
-  switch(header->messageType)
+  switch(header->message_type)
   {
   case DataProtocol::loginResponse:
     handleInternalLoginResponse((InternalProtocol::LoginResponse&)*header);
@@ -450,19 +450,19 @@ void_t ClientHandler::handleInternalLoginResponse(const InternalProtocol::LoginR
   Memory::copy(&signature, &loginResponse.signature, sizeof(signature));
 
   DataProtocol::LoginResponse response;
-  response.flags = 0;
-  response.size = sizeof(response);
-  response.messageType = DataProtocol::loginResponse;
-  response.requestId = loginResponse.requestId;
-  Memory::copy(&response.pwSalt, &loginResponse.pwSalt, sizeof(response.pwSalt));
-  Memory::copy(&response.authSalt, &loginResponse.authSalt, sizeof(response.authSalt));
+  response.header.flags = 0;
+  response.header.size = sizeof(response);
+  response.header.message_type = DataProtocol::loginResponse;
+  response.header.request_id = loginResponse.header.request_id;
+  Memory::copy(&response.pw_salt, &loginResponse.pw_salt, sizeof(response.pw_salt));
+  Memory::copy(&response.auth_salt, &loginResponse.auth_salt, sizeof(response.auth_salt));
   client.send((const byte_t*)&response, sizeof(response));
 }
 
 void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, const DataProtocol::Header& subscribeResponse)
 {
   client.send((const byte_t*)&subscribeResponse, subscribeResponse.size);
-  bool finished = (subscribeResponse.flags & DataProtocol::Header::fragmented) == 0;
+  bool finished = (subscribeResponse.flags & DataProtocol::HeaderFlag::fragmented) == 0;
   if(finished)
   {
     const DataProtocol::Entity* entity = (const DataProtocol::Entity*)(&subscribeResponse + 1);

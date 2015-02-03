@@ -28,9 +28,9 @@ private:
   void_t handleMessage(const DataProtocol::Header& header);
   void_t handleLogin(const DataProtocol::Header& header);
   void_t handleAdd(const DataProtocol::AddRequest& add);
-  void_t handleQuery(const DataProtocol::QueryRequest& query);
-  void_t handleSubscribe(const DataProtocol::SubscribeRequest& subscribe);
-  void_t handleQueryOrSubscribe(const DataProtocol::SubscribeRequest& subscribe, DataProtocol::MessageType responseType);
+  void_t handleQuery(DataProtocol::QueryRequest& query);
+  void_t handleSubscribe(DataProtocol::SubscribeRequest& subscribe);
+  void_t handleQueryOrSubscribe(DataProtocol::QueryRequest& query, DataProtocol::MessageType responseType);
 
   void_t sendErrorResponse(uint32_t requestId, DataProtocol::Error error);
 };

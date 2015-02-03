@@ -13,7 +13,7 @@
 #include "Table.h"
 #include "Subscription.h"
 
-ServerHandler::ServerHandler(Server& server) : server(server), nextTableId(DataProtocol::numOfTableIds) {}
+ServerHandler::ServerHandler(Server& server) : server(server), nextTableId(100) {}
 
 ServerHandler::~ServerHandler()
 {

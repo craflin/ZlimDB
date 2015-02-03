@@ -60,7 +60,7 @@ uint_t WorkerThread::main(void_t* param)
 
 void_t WorkerThread::handleMessage(const DataProtocol::Header& header)
 {
-  switch((DataProtocol::MessageType)header.messageType)
+  switch((DataProtocol::MessageType)header.message_type)
   {
   case DataProtocol::loginRequest:
     handleLogin(header);
@@ -82,140 +82,140 @@ void_t WorkerThread::handleLogin(const DataProtocol::Header& header)
   TableFile& tableFile = currentWorkerJob->getTableFile();
   Buffer userBuffer;
   if(!tableFile.get(1, userBuffer, 0) || userBuffer.size() < sizeof(InternalProtocol::User))
-    return sendErrorResponse(header.requestId, DataProtocol::invalidLogin);
+    return sendErrorResponse(header.request_id, DataProtocol::invalidLogin);
   const InternalProtocol::User* user = (const InternalProtocol::User*)(const byte_t*)userBuffer;
 
   Buffer& responseBuffer = currentWorkerJob->getResponseData();
   responseBuffer.resize(sizeof(InternalProtocol::LoginResponse));
   InternalProtocol::LoginResponse* response = (InternalProtocol::LoginResponse*)(byte_t*)responseBuffer;
-  response->flags = 0;
-  response->size = sizeof(*response);
-  response->messageType = DataProtocol::loginResponse;
-  response->requestId = header.requestId;
-  Memory::copy(&response->pwSalt, &user->pwSalt, sizeof(user->pwSalt));
-  for(uint16_t* i = (uint16_t*)response->authSalt, * end = (uint16_t*)(response->authSalt + sizeof(response->authSalt)); i < end; ++i)
+  response->header.flags = 0;
+  response->header.size = sizeof(*response);
+  response->header.message_type = DataProtocol::loginResponse;
+  response->header.request_id = header.request_id;
+  Memory::copy(&response->pw_salt, &user->pwSalt, sizeof(user->pwSalt));
+  for(uint16_t* i = (uint16_t*)response->auth_salt, * end = (uint16_t*)(response->auth_salt + sizeof(response->auth_salt)); i < end; ++i)
       *i = Math::random();
-  Sha256::hmac(response->authSalt, sizeof(response->authSalt), user->pwHash, sizeof(user->pwHash), response->signature);
+  Sha256::hmac(response->auth_salt, sizeof(response->auth_salt), user->pwHash, sizeof(user->pwHash), response->signature);
 }
 
 void_t WorkerThread::handleAdd(const DataProtocol::AddRequest& add)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
-  switch(add.tableId)
+  switch(add.table_id)
   {
   case DataProtocol::tablesTable:
     {
       const DataProtocol::Table* tableEntity = (const DataProtocol::Table*)(&add + 1);
       String tableName;
-      if(!DataProtocol::getString(add, *tableEntity, sizeof(*tableEntity), tableEntity->nameSize, tableName))
-        return sendErrorResponse(add.requestId, DataProtocol::Error::invalidData);
+      if(!DataProtocol::getString(add.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
+        return sendErrorResponse(add.header.request_id, DataProtocol::Error::invalidData);
 
       if(!tableFile.create(tableName))
-        return sendErrorResponse(add.requestId, DataProtocol::Error::couldNotOpenFile);
+        return sendErrorResponse(add.header.request_id, DataProtocol::Error::couldNotOpenFile);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(DataProtocol::Header));
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
-      DataProtocol::setHeader(*response, DataProtocol::addResponse, sizeof(*response), add.requestId);
+      DataProtocol::setHeader(*response, DataProtocol::addResponse, sizeof(*response), add.header.request_id);
       break;
     }
   default:
     {
       const TableFile::DataHeader* data = (const TableFile::DataHeader*)(&add + 1);
-      if(data->size != add.size - sizeof(add))
-        return sendErrorResponse(add.requestId, DataProtocol::Error::invalidData);
+      if(data->size != add.header.size - sizeof(add))
+        return sendErrorResponse(add.header.request_id, DataProtocol::Error::invalidData);
       if(!tableFile.add(*data))
-        return sendErrorResponse(add.requestId, DataProtocol::Error::couldNotWriteFile);
+        return sendErrorResponse(add.header.request_id, DataProtocol::Error::couldNotWriteFile);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(DataProtocol::Header));
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = 0;
       response->size = sizeof(*response);
-      response->messageType = DataProtocol::addResponse;
-      response->requestId = add.requestId;
+      response->message_type = DataProtocol::addResponse;
+      response->request_id = add.header.request_id;
       break;
     }
   }
 }
 
-void_t WorkerThread::handleQuery(const DataProtocol::QueryRequest& query)
+void_t WorkerThread::handleQuery(DataProtocol::QueryRequest& query)
 {
   return handleQueryOrSubscribe(query, DataProtocol::queryResponse);
 }
 
-void_t WorkerThread::handleSubscribe(const DataProtocol::SubscribeRequest& subscribe)
+void_t WorkerThread::handleSubscribe(DataProtocol::SubscribeRequest& subscribe)
 {
   return handleQueryOrSubscribe(subscribe, DataProtocol::subscribeResponse);
 }
 
-void_t WorkerThread::handleQueryOrSubscribe(const DataProtocol::SubscribeRequest& subscribe, DataProtocol::MessageType responseType)
+void_t WorkerThread::handleQueryOrSubscribe(DataProtocol::QueryRequest& query, DataProtocol::MessageType responseType)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
   Buffer& responseBuffer = currentWorkerJob->getResponseData();
-  switch(subscribe.type)
+  switch(query.type)
   {
-  case DataProtocol::QueryRequest::all:
+  case DataProtocol::QueryType::all:
     {
       uint64_t blockId;
-      if(subscribe.param == 0)
+      if(query.param == 0)
       {
         if(!tableFile.getFirstCompressedBlock(blockId, responseBuffer, sizeof(DataProtocol::Header)))
-          return sendErrorResponse(subscribe.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
+          return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       }
-      else if(!tableFile.getNextCompressedBlock(subscribe.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
-        return sendErrorResponse(subscribe.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
+      else if(!tableFile.getNextCompressedBlock(query.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
+        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
-      response->flags = DataProtocol::Header::compressed;
+      response->flags = DataProtocol::HeaderFlag::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
-        response->flags |= DataProtocol::Header::fragmented;
-      ((DataProtocol::SubscribeRequest&)subscribe).param = blockId;
-      response->messageType = responseType;
-      response->requestId = subscribe.requestId;
+        response->flags |= DataProtocol::HeaderFlag::fragmented;
+      query.param = blockId;
+      response->message_type = responseType;
+      response->request_id = query.header.request_id;
       response->size = responseBuffer.size();
       break;
     }
-  case DataProtocol::QueryRequest::byId:
+  case DataProtocol::QueryType::byId:
     {
-      if(!tableFile.get(subscribe.param, responseBuffer, sizeof(DataProtocol::Header)))
+      if(!tableFile.get(query.param, responseBuffer, sizeof(DataProtocol::Header)))
         // todo: distinguish between "not found" and "file io error"
-        return sendErrorResponse(subscribe.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
+        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = 0;
-      response->messageType = responseType;
-      response->requestId = subscribe.requestId;
+      response->message_type = responseType;
+      response->request_id = query.header.request_id;
       response->size = responseBuffer.size();
       break;
     }
-  case DataProtocol::QueryRequest::sinceId:
+  case DataProtocol::QueryType::sinceId:
     {
       uint64_t blockId;
-      if(!tableFile.getCompressedBlock(subscribe.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
-        return sendErrorResponse(subscribe.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
+      if(!tableFile.getCompressedBlock(query.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
+        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
-      response->flags = DataProtocol::Header::compressed;
+      response->flags = DataProtocol::HeaderFlag::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
-        response->flags |= DataProtocol::Header::fragmented;
-      ((DataProtocol::SubscribeRequest&)subscribe).type = DataProtocol::SubscribeRequest::all;
-      ((DataProtocol::SubscribeRequest&)subscribe).param = blockId;
-      response->messageType = responseType;
-      response->requestId = subscribe.requestId;
+        response->flags |= DataProtocol::HeaderFlag::fragmented;
+      query.type = DataProtocol::QueryType::all;
+      query.param = blockId;
+      response->message_type = responseType;
+      response->request_id = query.header.request_id;
       response->size = responseBuffer.size();
       break;
     }
-  case DataProtocol::QueryRequest::sinceTime:
+  case DataProtocol::QueryType::sinceTime:
     {
       uint64_t blockId;
-      if(!tableFile.getCompressedBlockByTime(subscribe.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
-        return sendErrorResponse(subscribe.requestId, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
+      if(!tableFile.getCompressedBlockByTime(query.param, blockId, responseBuffer, sizeof(DataProtocol::Header)))
+        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? DataProtocol::Error::entityNotFound : DataProtocol::Error::couldNotReadFile);
       DataProtocol::Header* response = (DataProtocol::Header*)(byte_t*)responseBuffer;
-      response->flags = DataProtocol::Header::compressed;
+      response->flags = DataProtocol::HeaderFlag::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
-        response->flags |= DataProtocol::Header::fragmented;
-      ((DataProtocol::SubscribeRequest&)subscribe).type = DataProtocol::SubscribeRequest::all;
-      ((DataProtocol::SubscribeRequest&)subscribe).param = blockId;
-      response->messageType = responseType;
-      response->requestId = subscribe.requestId;
+        response->flags |= DataProtocol::HeaderFlag::fragmented;
+      query.type = DataProtocol::QueryType::all;
+      query.param = blockId;
+      response->message_type = responseType;
+      response->request_id = query.header.request_id;
       response->size = responseBuffer.size();
       break;
     }
@@ -228,9 +228,9 @@ void_t WorkerThread::sendErrorResponse(uint32_t requestId, DataProtocol::Error e
   Buffer& responseBuffer = currentWorkerJob->getResponseData();
   responseBuffer.resize(sizeof(DataProtocol::ErrorResponse));
   DataProtocol::ErrorResponse* response = (DataProtocol::ErrorResponse*)(byte_t*)responseBuffer;
-  response->size = sizeof(*response);
-  response->flags = 0;
-  response->messageType = DataProtocol::errorResponse;
-  response->requestId = requestId;
+  response->header.size = sizeof(*response);
+  response->header.flags = 0;
+  response->header.message_type = DataProtocol::errorResponse;
+  response->header.request_id = requestId;
   response->error = error;
 }

@@ -37,10 +37,10 @@ uint32_t Table::getEntitySize() const
 
 void_t Table::getEntity(DataProtocol::Table& entity) const
 {
-  entity.size = sizeof(DataProtocol::Table) + name.length();
-  entity.id = id;
-  entity.time = time;
+  entity.entity.size = sizeof(DataProtocol::Table) + name.length();
+  entity.entity.id = id;
+  entity.entity.time = time;
   entity.flags = 0;
-  entity.nameSize = name.length();
+  entity.name_size = name.length();
   Memory::copy(&entity + 1, (const char_t*)name, name.length());
 }
