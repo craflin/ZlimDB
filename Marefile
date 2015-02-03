@@ -1,9 +1,10 @@
 
+buildDir = "Build/$(configuration)/$(target)"
+
 targets = {
 
   zlimdb = cppApplication + {
     dependencies = { "libnstd", "liblz4" }
-    buildDir = "Build/$(configuration)"
     includePaths = { "Ext/libnstd/include", "Ext/lz4", "Ext/libzlimdbclient/include" }
     libPaths = { "Build/$(configuration)/libnstd", "Build/$(configuration)/liblz4" }
     libs = { "nstd", "lz4" }
@@ -22,24 +23,14 @@ targets = {
     }
   }
 
-  libnstd = cppStaticLibrary + {
+  include "Ext/libnstd/libnstd.mare"
+  libnstd += {
     folder = "Libraries"
-    includePaths = { "Ext/libnstd/include" }
-    buildDir = "Build/$(configuration)/$(target)"
-    root = { "Ext/libnstd/src", "Ext/libnstd/include/nstd" }
-    files = {
-      "Ext/libnstd/src/*.cpp" = cppSource,
-      "Ext/libnstd/include/nstd/*.h"
-    }
-    if tool == "vcxproj" {
-      defines += { "_CRT_SECURE_NO_WARNINGS" }
-    }
   }
 
   liblz4 = cppStaticLibrary + {
     folder = "Libraries"
     includePaths = { "Ext/lz4" }
-    buildDir = "Build/$(configuration)/$(target)"
     root = { "Ext/lz4" }
     files = {
       "Ext/lz4/lz4.c" = cSource,
@@ -50,6 +41,5 @@ targets = {
   include "Ext/libzlimdbclient/libzlimdbclient.mare"
   libzlimdbclient += {
     folder = "Libraries"
-    buildDir = "Build/$(configuration)/$(target)"
   }
 }
