@@ -8,7 +8,7 @@
 #include "Tools/Server.h"
 
 #include "ClientProtocol.h"
-#include "InternalProtocol.h"
+#include "WorkerProtocol.h"
 
 class ServerHandler;
 class WorkerJob;
@@ -61,7 +61,7 @@ private:
   void_t handleUnsubscribe(const ClientProtocol::UnsubscribeRequest& unsubscribe);
   void_t handleQuery(const ClientProtocol::QueryRequest& query);
 
-  void_t handleInternalLoginResponse(const InternalProtocol::LoginResponse& loginResponse);
+  void_t handleInternalLoginResponse(const WorkerProtocol::LoginResponse& loginResponse);
   void_t handleInternalSubscribeResponse(WorkerJob& workerJob, const ClientProtocol::Header& subscribeResponse);
 
   void_t sendErrorResponse(uint32_t requestId, ClientProtocol::Error error);

@@ -81,13 +81,13 @@ void_t WorkerThread::handleLogin(const ClientProtocol::Header& header)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
   Buffer userBuffer;
-  if(!tableFile.get(1, userBuffer, 0) || userBuffer.size() < sizeof(InternalProtocol::User))
+  if(!tableFile.get(1, userBuffer, 0) || userBuffer.size() < sizeof(WorkerProtocol::User))
     return sendErrorResponse(header.request_id, ClientProtocol::invalidLogin);
-  const InternalProtocol::User* user = (const InternalProtocol::User*)(const byte_t*)userBuffer;
+  const WorkerProtocol::User* user = (const WorkerProtocol::User*)(const byte_t*)userBuffer;
 
   Buffer& responseBuffer = currentWorkerJob->getResponseData();
-  responseBuffer.resize(sizeof(InternalProtocol::LoginResponse));
-  InternalProtocol::LoginResponse* response = (InternalProtocol::LoginResponse*)(byte_t*)responseBuffer;
+  responseBuffer.resize(sizeof(WorkerProtocol::LoginResponse));
+  WorkerProtocol::LoginResponse* response = (WorkerProtocol::LoginResponse*)(byte_t*)responseBuffer;
   response->header.flags = 0;
   response->header.size = sizeof(*response);
   response->header.message_type = ClientProtocol::loginResponse;

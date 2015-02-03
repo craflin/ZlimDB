@@ -4,7 +4,7 @@
 #include <nstd/Thread.h>
 
 #include "Tools/Socket.h"
-#include "InternalProtocol.h"
+#include "WorkerProtocol.h"
 
 class WorkerJob;
 class TableFile;

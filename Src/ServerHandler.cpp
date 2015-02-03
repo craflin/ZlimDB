@@ -43,7 +43,7 @@ bool_t ServerHandler::loadTables(const String& path)
   if(tables.isEmpty()) // add default user
   {
     String tableName("users/root/.user");
-    InternalProtocol::User user;
+    WorkerProtocol::User user;
     user.id = 1;
     user.time = Time::time();
     user.size = sizeof(user);

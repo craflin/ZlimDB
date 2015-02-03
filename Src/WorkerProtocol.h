@@ -3,7 +3,7 @@
 
 #include "ClientProtocol.h"
 
-class InternalProtocol // todo: rename WorkerProtocol
+class WorkerProtocol
 {
 public:
   struct LoginResponse : public ClientProtocol::LoginResponse

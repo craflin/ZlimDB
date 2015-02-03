@@ -6,7 +6,7 @@
 #include "ServerHandler.h"
 #include "WorkerJob.h"
 #include "WorkerHandler.h"
-#include "InternalProtocol.h"
+#include "WorkerProtocol.h"
 #include "Table.h"
 #include "Subscription.h"
 
@@ -405,7 +405,7 @@ void_t ClientHandler::handleWorkerJob(WorkerJob& workerJob)
   switch(header->message_type)
   {
   case ClientProtocol::loginResponse:
-    handleInternalLoginResponse((InternalProtocol::LoginResponse&)*header);
+    handleInternalLoginResponse((WorkerProtocol::LoginResponse&)*header);
     break;
   case ClientProtocol::subscribeResponse:
     handleInternalSubscribeResponse(workerJob, (ClientProtocol::Header&)*header);
@@ -445,7 +445,7 @@ void_t ClientHandler::removeSubscription(Subscription& subscription)
   subscriptions.remove(&subscription.getTable());
 }
 
-void_t ClientHandler::handleInternalLoginResponse(const InternalProtocol::LoginResponse& loginResponse)
+void_t ClientHandler::handleInternalLoginResponse(const WorkerProtocol::LoginResponse& loginResponse)
 {
   Memory::copy(&signature, &loginResponse.signature, sizeof(signature));
 
