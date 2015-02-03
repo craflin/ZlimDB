@@ -4,7 +4,7 @@ targets = {
   zlimdb = cppApplication + {
     dependencies = { "libnstd", "liblz4" }
     buildDir = "Build/$(configuration)"
-    includePaths = { "Ext/libnstd/include", "Ext/lz4" }
+    includePaths = { "Ext/libnstd/include", "Ext/lz4", "Ext/libzlimdbclient/include" }
     libPaths = { "Build/$(configuration)/libnstd", "Build/$(configuration)/liblz4" }
     libs = { "nstd", "lz4" }
     root = "Src"
@@ -45,5 +45,11 @@ targets = {
       "Ext/lz4/lz4.c" = cSource,
       "Ext/lz4/lz4.h"
     }
+  }
+
+  include "Ext/libzlimdbclient/libzlimdbclient.mare"
+  libzlimdbclient += {
+    folder = "Libraries"
+    buildDir = "Build/$(configuration)/$(target)"
   }
 }
