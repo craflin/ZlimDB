@@ -13,7 +13,7 @@ bool_t Table::open()
   return true;
 }
 
-bool_t Table::create(const DataProtocol::Entity* entity)
+bool_t Table::create(const ClientProtocol::Entity* entity)
 {
   String dir = File::dirname(name);
   if(dir != ".")
@@ -32,12 +32,12 @@ bool_t Table::create(const DataProtocol::Entity* entity)
 
 uint32_t Table::getEntitySize() const
 {
-  return sizeof(DataProtocol::Table) + name.length();
+  return sizeof(ClientProtocol::Table) + name.length();
 }
 
-void_t Table::getEntity(DataProtocol::Table& entity) const
+void_t Table::getEntity(ClientProtocol::Table& entity) const
 {
-  entity.entity.size = sizeof(DataProtocol::Table) + name.length();
+  entity.entity.size = sizeof(ClientProtocol::Table) + name.length();
   entity.entity.id = id;
   entity.entity.time = time;
   entity.flags = 0;

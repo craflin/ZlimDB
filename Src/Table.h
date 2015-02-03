@@ -7,7 +7,7 @@
 
 #include "Tools/TableFile.h"
 
-#include "DataProtocol.h"
+#include "ClientProtocol.h"
 
 class WorkerJob;
 class WorkerHandler;
@@ -23,14 +23,14 @@ public:
   bool_t isValid() const {return valid;}
 
   bool_t open();
-  bool_t create(const DataProtocol::Entity* entity);
+  bool_t create(const ClientProtocol::Entity* entity);
   TableFile& getTableFile() {return tableFile;}
 
   uint64_t getLastEntityId() const {return lastEntityId;}
   void_t setLastEntityId(uint64_t entityId) {lastEntityId = entityId;}
 
   uint32_t getEntitySize() const;
-  void_t getEntity(DataProtocol::Table& entity) const;
+  void_t getEntity(ClientProtocol::Table& entity) const;
 
   size_t getLoad() const {return openWorkerJobs.size();}
   WorkerHandler* getWorkerHandler() {return workerHandler;}

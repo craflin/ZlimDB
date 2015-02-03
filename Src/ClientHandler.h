@@ -7,7 +7,7 @@
 
 #include "Tools/Server.h"
 
-#include "DataProtocol.h"
+#include "ClientProtocol.h"
 #include "InternalProtocol.h"
 
 class ServerHandler;
@@ -51,20 +51,20 @@ private: // Server::Client::Listener
   virtual void_t write() {resume();}
 
 private: 
-  void_t handleMessage(DataProtocol::Header& header);
-  void_t handleLogin(const DataProtocol::LoginRequest& login);
-  void_t handleAuth(const DataProtocol::AuthRequest& auth);
-  void_t handleAdd(DataProtocol::AddRequest& add);
-  void_t handleUpdate(const DataProtocol::UpdateRequest& update);
-  void_t handleRemove(const DataProtocol::RemoveRequest& remove);
-  void_t handleSubscribe(const DataProtocol::SubscribeRequest& subscribe);
-  void_t handleUnsubscribe(const DataProtocol::UnsubscribeRequest& unsubscribe);
-  void_t handleQuery(const DataProtocol::QueryRequest& query);
+  void_t handleMessage(ClientProtocol::Header& header);
+  void_t handleLogin(const ClientProtocol::LoginRequest& login);
+  void_t handleAuth(const ClientProtocol::AuthRequest& auth);
+  void_t handleAdd(ClientProtocol::AddRequest& add);
+  void_t handleUpdate(const ClientProtocol::UpdateRequest& update);
+  void_t handleRemove(const ClientProtocol::RemoveRequest& remove);
+  void_t handleSubscribe(const ClientProtocol::SubscribeRequest& subscribe);
+  void_t handleUnsubscribe(const ClientProtocol::UnsubscribeRequest& unsubscribe);
+  void_t handleQuery(const ClientProtocol::QueryRequest& query);
 
   void_t handleInternalLoginResponse(const InternalProtocol::LoginResponse& loginResponse);
-  void_t handleInternalSubscribeResponse(WorkerJob& workerJob, const DataProtocol::Header& subscribeResponse);
+  void_t handleInternalSubscribeResponse(WorkerJob& workerJob, const ClientProtocol::Header& subscribeResponse);
 
-  void_t sendErrorResponse(uint32_t requestId, DataProtocol::Error error);
-  void_t sendOkResponse(DataProtocol::MessageType type,uint32_t requestId);
-  void_t sendResponse(DataProtocol::Header& header);
+  void_t sendErrorResponse(uint32_t requestId, ClientProtocol::Error error);
+  void_t sendOkResponse(ClientProtocol::MessageType type,uint32_t requestId);
+  void_t sendResponse(ClientProtocol::Header& header);
 };

@@ -5,7 +5,7 @@
 #include "WorkerHandler.h"
 #include "ServerHandler.h"
 #include "ClientHandler.h"
-#include "DataProtocol.h"
+#include "ClientProtocol.h"
 #include "Table.h"
 
 WorkerHandler::~WorkerHandler()
@@ -48,7 +48,7 @@ void_t WorkerHandler::handleWorkerJob(WorkerJob& workerJob)
   if(clientHandler)
   {
     clientHandler->handleWorkerJob(workerJob);
-    bool finished = (((const DataProtocol::Header*)(const byte_t*)workerJob.getResponseData())->flags & DataProtocol::HeaderFlag::fragmented) == 0;
+    bool finished = (((const ClientProtocol::Header*)(const byte_t*)workerJob.getResponseData())->flags & ClientProtocol::HeaderFlag::fragmented) == 0;
     if(finished)
       serverHandler.removeWorkerJob(workerJob);
     else if(!clientHandler->isSuspended())

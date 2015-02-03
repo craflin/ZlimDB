@@ -25,12 +25,12 @@ private:
   static uint_t main(void_t* param);
 
 private:
-  void_t handleMessage(const DataProtocol::Header& header);
-  void_t handleLogin(const DataProtocol::Header& header);
-  void_t handleAdd(const DataProtocol::AddRequest& add);
-  void_t handleQuery(DataProtocol::QueryRequest& query);
-  void_t handleSubscribe(DataProtocol::SubscribeRequest& subscribe);
-  void_t handleQueryOrSubscribe(DataProtocol::QueryRequest& query, DataProtocol::MessageType responseType);
+  void_t handleMessage(const ClientProtocol::Header& header);
+  void_t handleLogin(const ClientProtocol::Header& header);
+  void_t handleAdd(const ClientProtocol::AddRequest& add);
+  void_t handleQuery(ClientProtocol::QueryRequest& query);
+  void_t handleSubscribe(ClientProtocol::SubscribeRequest& subscribe);
+  void_t handleQueryOrSubscribe(ClientProtocol::QueryRequest& query, ClientProtocol::MessageType responseType);
 
-  void_t sendErrorResponse(uint32_t requestId, DataProtocol::Error error);
+  void_t sendErrorResponse(uint32_t requestId, ClientProtocol::Error error);
 };

@@ -3,7 +3,7 @@
 
 #include <zlimdbprotocol.h>
 
-class DataProtocol // todo: rename ClientProtocol
+class ClientProtocol
 {
 public:
   enum MessageType
