@@ -114,7 +114,7 @@ void_t ClientHandler::handleLogin(const ClientProtocol::LoginRequest& login)
 {
   String userName;
   if(!ClientProtocol::getString(login.header, sizeof(ClientProtocol::LoginRequest), login.user_name_size, userName))
-    return sendErrorResponse(login.header.request_id, ClientProtocol::invalidData);
+    return sendErrorResponse(login.header.request_id, ClientProtocol::invalidMessageData);
   Table* table = serverHandler.findTable(String("users/") + userName + "/.user");
   if(!table)
     return sendErrorResponse(login.header.request_id, ClientProtocol::invalidLogin);
@@ -154,7 +154,7 @@ void_t ClientHandler::handleAdd(ClientProtocol::AddRequest& add)
       String tableName;
       const ClientProtocol::Table* tableEntity = (const ClientProtocol::Table*)(&add + 1);
       if(!ClientProtocol::getString(add.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
-        return sendErrorResponse(add.header.request_id, ClientProtocol::invalidData);
+        return sendErrorResponse(add.header.request_id, ClientProtocol::invalidMessageData);
 
       // create table without opening the file
       Table* table = serverHandler.findTable(tableName);

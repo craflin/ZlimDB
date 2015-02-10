@@ -29,9 +29,9 @@ public:
   
   enum TableId
   {
-    clientsTable = zlimdb_tabe_clients,
-    tablesTable = zlimdb_tabe_tables,
-    timeTable = zlimdb_tabe_time,
+    clientsTable = zlimdb_table_clients,
+    tablesTable = zlimdb_table_tables,
+    timeTable = zlimdb_table_time,
   };
 
   enum Error
@@ -44,11 +44,11 @@ public:
     invalidRequest = zlimdb_error_invalid_request,
     invalidLogin = zlimdb_error_invalid_login,
     tableAlreadyExists = zlimdb_error_table_already_exists,
-    couldNotOpenFile = zlimdb_error_could_not_open_file,
-    couldNotReadFile = zlimdb_error_could_not_read_file,
-    couldNotWriteFile = zlimdb_error_could_not_write_file,
+    openFile = zlimdb_error_open_file,
+    readFile = zlimdb_error_read_file,
+    writeFile = zlimdb_error_write_file,
     subscriptionNotFound = zlimdb_error_subscription_not_found,
-    invalidData = zlimdb_error_invalid_data,
+    invalidMessageData = zlimdb_error_invalid_message_data,
   };
 
   struct HeaderFlag
@@ -65,7 +65,7 @@ public:
     static const uint8_t byId = zlimdb_query_type_by_id;
   };
 
-  typedef zlimdb_message_header Header;
+  typedef zlimdb_header Header;
   typedef zlimdb_error_response ErrorResponse;
   typedef zlimdb_login_request LoginRequest;
   typedef zlimdb_login_response LoginResponse;
