@@ -21,6 +21,7 @@ public:
   uint32_t getId() const {return id;}
   const String& getName() const {return name;}
   bool_t isValid() const {return valid;}
+  void_t invalidate() {valid = false;}
 
   bool_t open();
   bool_t create(const ClientProtocol::Entity* entity);

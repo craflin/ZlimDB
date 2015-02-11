@@ -63,6 +63,7 @@ private:
 
   void_t handleInternalLoginResponse(const WorkerProtocol::LoginResponse& loginResponse);
   void_t handleInternalSubscribeResponse(WorkerJob& workerJob, const ClientProtocol::Header& subscribeResponse);
+  void_t handleInternalErrorResponse(WorkerJob& workerJob, const ClientProtocol::ErrorResponse& errorResponse);
 
   void_t sendErrorResponse(uint32_t requestId, ClientProtocol::Error error);
   void_t sendOkResponse(ClientProtocol::MessageType type,uint32_t requestId);

@@ -410,6 +410,9 @@ void_t ClientHandler::handleWorkerJob(WorkerJob& workerJob)
   case ClientProtocol::subscribeResponse:
     handleInternalSubscribeResponse(workerJob, (ClientProtocol::Header&)*header);
     break;
+  case ClientProtocol::errorResponse:
+    handleInternalErrorResponse(workerJob, (ClientProtocol::ErrorResponse&)*header);
+    break;
   default:
     if(!client.send((const byte_t*)header, header->size))
       suspend();
@@ -474,8 +477,8 @@ void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, cons
     Table& table = workerJob.getTable();
     if(maxId != table.getLastEntityId())
     {
-      Buffer& request = workerJob.getRequestData();
-      serverHandler.createWorkerJob(*this, table, (byte_t*)request, request.size());
+      const Buffer& request = workerJob.getRequestData();
+      serverHandler.createWorkerJob(*this, table, (const byte_t*)request, request.size());
     }
     else
     {
@@ -487,4 +490,20 @@ void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, cons
       }
     }
   }
+}
+
+void_t ClientHandler::handleInternalErrorResponse(WorkerJob& workerJob, const ClientProtocol::ErrorResponse& errorResponse)
+{
+  const Buffer& request = workerJob.getRequestData();
+  const ClientProtocol::Header* requestHeader = (const ClientProtocol::Header*)(const byte_t*)request;
+  if(requestHeader->message_type == ClientProtocol::addRequest)
+  {
+    const ClientProtocol::AddRequest* addRequest = (const ClientProtocol::AddRequest*)requestHeader;
+    if(addRequest->table_id == ClientProtocol::tablesTable)
+    {
+      Table& table = workerJob.getTable();
+      table.invalidate();
+    }
+  }
+  client.send((const byte_t*)&errorResponse, errorResponse.header.size);
 }
