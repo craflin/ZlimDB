@@ -71,6 +71,9 @@ void_t WorkerThread::handleMessage(const ClientProtocol::Header& header)
   case ClientProtocol::queryRequest:
     handleQuery((ClientProtocol::QueryRequest&)header);
     break;
+  case ClientProtocol::subscribeRequest:
+    handleSubscribe((ClientProtocol::SubscribeRequest&)header);
+    break;
   default:
     ASSERT(false);
     break;
@@ -168,8 +171,12 @@ void_t WorkerThread::handleQueryOrSubscribe(ClientProtocol::QueryRequest& query,
       ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = ClientProtocol::HeaderFlag::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
+      {
         response->flags |= ClientProtocol::HeaderFlag::fragmented;
-      query.param = blockId;
+        query.param = blockId;
+      }
+      else
+        query.param = tableFile.getLastId();
       response->message_type = responseType;
       response->request_id = query.header.request_id;
       response->size = responseBuffer.size();
@@ -178,7 +185,6 @@ void_t WorkerThread::handleQueryOrSubscribe(ClientProtocol::QueryRequest& query,
   case ClientProtocol::QueryType::byId:
     {
       if(!tableFile.get(query.param, responseBuffer, sizeof(ClientProtocol::Header)))
-        // todo: distinguish between "not found" and "file io error"
         return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::Error::entityNotFound : ClientProtocol::Error::readFile);
       ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = 0;
@@ -195,9 +201,13 @@ void_t WorkerThread::handleQueryOrSubscribe(ClientProtocol::QueryRequest& query,
       ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = ClientProtocol::HeaderFlag::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
+      {
         response->flags |= ClientProtocol::HeaderFlag::fragmented;
+        query.param = blockId;
+      }
+      else
+        query.param = tableFile.getLastId();
       query.type = ClientProtocol::QueryType::all;
-      query.param = blockId;
       response->message_type = responseType;
       response->request_id = query.header.request_id;
       response->size = responseBuffer.size();
@@ -211,9 +221,13 @@ void_t WorkerThread::handleQueryOrSubscribe(ClientProtocol::QueryRequest& query,
       ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = ClientProtocol::HeaderFlag::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
+      {
         response->flags |= ClientProtocol::HeaderFlag::fragmented;
+        query.param = blockId;
+      }
+      else
+        query.param = tableFile.getLastId();
       query.type = ClientProtocol::QueryType::all;
-      query.param = blockId;
       response->message_type = responseType;
       response->request_id = query.header.request_id;
       response->size = responseBuffer.size();

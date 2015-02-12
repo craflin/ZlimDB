@@ -462,24 +462,17 @@ void_t ClientHandler::handleInternalLoginResponse(const WorkerProtocol::LoginRes
   client.send((const byte_t*)&response, sizeof(response));
 }
 
-void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, const ClientProtocol::Header& subscribeResponse)
+void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, ClientProtocol::Header& subscribeResponse)
 {
   client.send((const byte_t*)&subscribeResponse, subscribeResponse.size);
   bool finished = (subscribeResponse.flags & ClientProtocol::HeaderFlag::fragmented) == 0;
   if(finished)
   {
-    const ClientProtocol::Entity* entity = (const ClientProtocol::Entity*)(&subscribeResponse + 1);
-    uint64_t maxId = entity->id;
-    entity = (const ClientProtocol::Entity*)((const byte_t*)entity + entity->size);
-    const ClientProtocol::Entity* end = (const ClientProtocol::Entity*)((const byte_t*)&subscribeResponse + subscribeResponse.size);
-    for(; entity < end; entity = (const ClientProtocol::Entity*)((const byte_t*)entity + entity->size))
-      maxId = entity->id;
+    const ClientProtocol::SubscribeRequest* subscribeRequest = (const ClientProtocol::SubscribeRequest*)(const byte_t*)workerJob.getRequestData();
     Table& table = workerJob.getTable();
-    if(maxId != table.getLastEntityId())
-    {
-      const Buffer& request = workerJob.getRequestData();
-      serverHandler.createWorkerJob(*this, table, (const byte_t*)request, request.size());
-    }
+    uint64_t lastReplayedEntityId = subscribeRequest->param;
+    if(lastReplayedEntityId != table.getLastEntityId())
+      subscribeResponse.flags |= ClientProtocol::HeaderFlag::fragmented;
     else
     {
       HashMap<Table*, Subscription*>::Iterator i = subscriptions.find(&table);
