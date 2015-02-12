@@ -273,23 +273,7 @@ void_t ClientHandler::handleSubscribe(const ClientProtocol::SubscribeRequest& su
   if(table->getLastEntityId() == 0)
     subscription.setSynced();
   else
-  {
     serverHandler.createWorkerJob(*this, *table, &subscribe, sizeof(subscribe));
-  }
-  /*
-  wie bekomme ich dies richtig synchronisiert?
-    - daten über worker thread requesten
-    - wenn bei der reponse die letzte id gleich der neusten id, dann wirklich subscriben
-    - woher weis ich, welches die wirklich neuste id ist?
-      - die neuste id wird beim öffnen der table datei bestimmt
-      - die neuste id ist diejenige für die zuletzt ein add job erstellt wurde
-      - damit darf ich keine ids mehr im worker thread erstellen, da ich diese vorweg kennen muss
-
-  was ist, wenn beim requesten der vorhandenen daten etwas manipuliert wird?
-    - über die last replayed id kann ich bestimmen, ob relevant oder nicht
-      - ne nicht wirklich, da daten in der queue sein können
-    - also muss ich alle änderung übertragen, was die gefahr birgt, dass der client damit nichts anfangen kann.. egal?
-    */
 }
 
 void_t ClientHandler::handleUnsubscribe(const ClientProtocol::UnsubscribeRequest& unsubscribe)
