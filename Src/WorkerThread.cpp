@@ -117,9 +117,10 @@ void_t WorkerThread::handleAdd(const ClientProtocol::AddRequest& add)
         return sendErrorResponse(add.header.request_id, ClientProtocol::Error::openFile);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
-      responseBuffer.resize(sizeof(ClientProtocol::Header));
-      ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
-      ClientProtocol::setHeader(*response, ClientProtocol::addResponse, sizeof(*response), add.header.request_id);
+      responseBuffer.resize(sizeof(ClientProtocol::AddResponse));
+      ClientProtocol::AddResponse* response = (ClientProtocol::AddResponse*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(response->header, ClientProtocol::addResponse, sizeof(*response), add.header.request_id);
+      response->id = tableFile.getTableId();
       break;
     }
   default:
@@ -128,15 +129,14 @@ void_t WorkerThread::handleAdd(const ClientProtocol::AddRequest& add)
       if(data->size != add.header.size - sizeof(add))
         return sendErrorResponse(add.header.request_id, ClientProtocol::Error::invalidMessageData);
       if(!tableFile.add(*data))
+        // todo: handle argument error
         return sendErrorResponse(add.header.request_id, ClientProtocol::Error::writeFile);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
-      responseBuffer.resize(sizeof(ClientProtocol::Header));
-      ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
-      response->flags = 0;
-      response->size = sizeof(*response);
-      response->message_type = ClientProtocol::addResponse;
-      response->request_id = add.header.request_id;
+      responseBuffer.resize(sizeof(ClientProtocol::AddResponse));
+      ClientProtocol::AddResponse* response = (ClientProtocol::AddResponse*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(response->header, ClientProtocol::addResponse, sizeof(*response), add.header.request_id);
+      response->id = data->id;
       break;
     }
   }

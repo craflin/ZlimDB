@@ -26,8 +26,9 @@ public:
   };
 
 public:
-  TableFile() : lastError(noError) {}
+  TableFile(uint32_t id) : tableId(id), lastError(noError) {}
 
+  uint32_t getTableId() const {return tableId;}
   Error getLastError() const {return lastError;}
 
   bool_t create(const String& file);
@@ -64,6 +65,7 @@ private:
 #pragma pack(pop)
 
 private:
+  uint32_t tableId;
   File file2;
   FileHeader fileHeader;
   Buffer keys;

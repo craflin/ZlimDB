@@ -43,7 +43,6 @@ public:
     notImplemented = zlimdb_error_not_implemented,
     invalidRequest = zlimdb_error_invalid_request,
     invalidLogin = zlimdb_error_invalid_login,
-    tableAlreadyExists = zlimdb_error_table_already_exists,
     openFile = zlimdb_error_open_file,
     readFile = zlimdb_error_read_file,
     writeFile = zlimdb_error_write_file,
@@ -71,6 +70,7 @@ public:
   typedef zlimdb_login_response LoginResponse;
   typedef zlimdb_auth_request AuthRequest;
   typedef zlimdb_add_request AddRequest;
+  typedef zlimdb_add_response AddResponse;
   typedef zlimdb_update_request UpdateRequest;
   typedef zlimdb_remove_request RemoveRequest;
   typedef zlimdb_subscribe_request SubscribeRequest;

@@ -159,7 +159,12 @@ void_t ClientHandler::handleAdd(ClientProtocol::AddRequest& add)
       // create table without opening the file
       Table* table = serverHandler.findTable(tableName);
       if(table)
-        return sendErrorResponse(add.header.request_id, ClientProtocol::tableAlreadyExists);
+      {
+        ClientProtocol::AddResponse addResponse;
+        ClientProtocol::setHeader(addResponse.header, ClientProtocol::addResponse, sizeof(addResponse), add.header.request_id);
+        addResponse.id = table->getId();
+        return sendResponse(addResponse.header);
+      }
       table = &serverHandler.createTable(tableName);
 
       // create internal job to create the file

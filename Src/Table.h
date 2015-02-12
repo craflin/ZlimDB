@@ -16,7 +16,7 @@ class Subscription;
 class Table
 {
 public:
-  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), lastEntityId(0) {}
+  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(id), lastEntityId(0) {}
 
   uint32_t getId() const {return id;}
   const String& getName() const {return name;}
