@@ -25,13 +25,14 @@ public:
     unsubscribeResponse = zlimdb_message_unsubscribe_response,
     queryRequest = zlimdb_message_query_request,
     queryResponse = zlimdb_message_query_response,
+    syncRequest = zlimdb_message_sync_request,
+    syncResponse = zlimdb_message_sync_response,
   };
   
   enum TableId
   {
     clientsTable = zlimdb_table_clients,
     tablesTable = zlimdb_table_tables,
-    timeTable = zlimdb_table_time,
   };
 
   enum Error
@@ -76,6 +77,8 @@ public:
   typedef zlimdb_subscribe_request SubscribeRequest;
   typedef zlimdb_query_request QueryRequest;
   typedef zlimdb_unsubscribe_request UnsubscribeRequest;
+  typedef zlimdb_sync_request SyncRequest;
+  typedef zlimdb_sync_response SyncResponse;
   typedef zlimdb_entity Entity;
   typedef zlimdb_table_entity Table;
 

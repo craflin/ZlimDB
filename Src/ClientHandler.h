@@ -60,6 +60,7 @@ private:
   void_t handleSubscribe(const ClientProtocol::SubscribeRequest& subscribe);
   void_t handleUnsubscribe(const ClientProtocol::UnsubscribeRequest& unsubscribe);
   void_t handleQuery(const ClientProtocol::QueryRequest& query);
+  void_t handleSync(const ClientProtocol::SyncRequest& sync);
 
   void_t handleInternalLoginResponse(const WorkerProtocol::LoginResponse& loginResponse);
   void_t handleInternalSubscribeResponse(WorkerJob& workerJob, ClientProtocol::Header& subscribeResponse);

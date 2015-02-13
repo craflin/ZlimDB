@@ -44,6 +44,7 @@ public:
   HashSet<Subscription*>& getSubscriptions() {return subscriptions;}
 
   timestamp_t updateTimeOffset(timestamp_t timeOffset);
+  timestamp_t getTimeOffset() const {return minTimeOffset == 0x7fffffffffffffffLL ? 0 : minTimeOffset;}
 
 private:
   uint32_t id;

@@ -104,6 +104,12 @@ void_t ClientHandler::handleMessage(ClientProtocol::Header& header)
     else
       sendErrorResponse(header.request_id, ClientProtocol::invalidMessageSize);
     break;
+  case ClientProtocol::syncRequest:
+    if(header.size >= sizeof(ClientProtocol::SyncRequest))
+      handleSync((const ClientProtocol::SyncRequest&)header);
+    else
+      sendErrorResponse(header.request_id, ClientProtocol::invalidMessageSize);
+    break;
   default:
     sendErrorResponse(header.request_id, ClientProtocol::invalidMessageType);
     break;
@@ -143,7 +149,6 @@ void_t ClientHandler::handleAdd(ClientProtocol::AddRequest& add)
   switch((ClientProtocol::TableId)add.table_id)
   {
   case ClientProtocol::clientsTable:
-  case ClientProtocol::timeTable:
     return sendErrorResponse(add.header.request_id, ClientProtocol::invalidRequest);
   case ClientProtocol::tablesTable:
     if(add.header.size < sizeof(add) + sizeof(ClientProtocol::Table))
@@ -214,7 +219,6 @@ void_t ClientHandler::handleUpdate(const ClientProtocol::UpdateRequest& update)
   switch((ClientProtocol::TableId)update.table_id)
   {
   case ClientProtocol::clientsTable:
-  case ClientProtocol::timeTable:
   case ClientProtocol::tablesTable:
     return sendErrorResponse(update.header.request_id, ClientProtocol::invalidRequest);
   default:
@@ -242,7 +246,6 @@ void_t ClientHandler::handleRemove(const ClientProtocol::RemoveRequest& remove)
   switch((ClientProtocol::TableId)remove.table_id)
   {
   case ClientProtocol::clientsTable:
-  case ClientProtocol::timeTable:
     return sendErrorResponse(remove.header.request_id, ClientProtocol::invalidRequest);
   case ClientProtocol::tablesTable:
     return sendErrorResponse(remove.header.request_id, ClientProtocol::notImplemented);
@@ -353,8 +356,6 @@ void_t ClientHandler::handleQuery(const ClientProtocol::QueryRequest& query)
       return sendErrorResponse(query.header.request_id, ClientProtocol::invalidRequest);
     }
     break;
-  case ClientProtocol::timeTable:
-    return sendErrorResponse(query.header.request_id, ClientProtocol::notImplemented);
   default:
     {
       Table* table = serverHandler.findTable(query.table_id);
@@ -365,6 +366,36 @@ void_t ClientHandler::handleQuery(const ClientProtocol::QueryRequest& query)
     }
     break;
   }
+}
+
+void_t ClientHandler::handleSync(const ClientProtocol::SyncRequest& sync)
+{
+  switch((ClientProtocol::TableId)sync.table_id)
+  {
+  case ClientProtocol::clientsTable:
+  case ClientProtocol::tablesTable:
+    {
+      ClientProtocol::SyncResponse syncResponse;
+      ClientProtocol::setHeader(syncResponse.header, ClientProtocol::syncResponse, sizeof(syncResponse), sync.header.request_id);
+      syncResponse.table_time = syncResponse.server_time = Time::time();
+      return sendResponse(syncResponse.header);
+    }
+  default:
+    {
+      timestamp_t now = Time::time();
+
+      Table* table = serverHandler.findTable(sync.table_id);
+      if(!table)
+        return sendErrorResponse(sync.header.request_id, ClientProtocol::tableNotFound);
+
+      ClientProtocol::SyncResponse syncResponse;
+      ClientProtocol::setHeader(syncResponse.header, ClientProtocol::syncResponse, sizeof(syncResponse), sync.header.request_id);
+      syncResponse.table_time = now;
+      syncResponse.server_time = now + table->getTimeOffset();
+      return sendResponse(syncResponse.header);
+    }
+  }
+
 }
 
 void_t ClientHandler::sendErrorResponse(uint32_t requestId, ClientProtocol::Error error)
