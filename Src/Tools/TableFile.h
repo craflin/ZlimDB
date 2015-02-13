@@ -35,7 +35,7 @@ public:
   bool_t open(const String& file);
   void_t close() {file2.close();}
   uint64_t getLastId() const {return lastId;}
-  bool_t add(const DataHeader& data);
+  bool_t add(const DataHeader& data, timestamp_t timeOffset);
   bool_t remove(uint64_t id);
   bool_t get(uint64_t id, Buffer& data, size_t dataOffset);
   bool_t getCompressedBlock(uint64_t id, uint64_t& blockId, Buffer& data, size_t dataOffset);
@@ -53,6 +53,7 @@ private:
     uint32_t keyCount;
     uint32_t keySize;
     uint16_t blockSize;
+    int64_t timeOffset;
   };
 
   struct Key

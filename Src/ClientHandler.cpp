@@ -176,6 +176,8 @@ void_t ClientHandler::handleAdd(ClientProtocol::AddRequest& add)
       return sendErrorResponse(add.header.request_id, ClientProtocol::invalidMessageSize);
     else
     {
+      timestamp_t now = Time::time();
+
       // find table
       Table* table = serverHandler.findTable(add.table_id);
       if(!table)
@@ -186,11 +188,13 @@ void_t ClientHandler::handleAdd(ClientProtocol::AddRequest& add)
       if(entity->id == 0)
         entity->id = table->getLastEntityId() + 1;
       if(entity->time == 0)
-        entity->time = Time::time();
+        entity->time = now;
       table->setLastEntityId(entity->id);
+      timestamp_t timeOffset = table->updateTimeOffset(now - entity->time);
 
       // create job to add entity
-      serverHandler.createWorkerJob(*this, *table, &add, add.header.size);
+      WorkerJob& workerJob = serverHandler.createWorkerJob(*this, *table, &add, add.header.size);
+      workerJob.setTimeOffset(timeOffset);
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();

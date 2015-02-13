@@ -128,7 +128,7 @@ void_t WorkerThread::handleAdd(const ClientProtocol::AddRequest& add)
       const TableFile::DataHeader* data = (const TableFile::DataHeader*)(&add + 1);
       if(data->size != add.header.size - sizeof(add))
         return sendErrorResponse(add.header.request_id, ClientProtocol::Error::invalidMessageData);
-      if(!tableFile.add(*data))
+      if(!tableFile.add(*data, currentWorkerJob->getTimeOffset()))
         // todo: handle argument error
         return sendErrorResponse(add.header.request_id, ClientProtocol::Error::writeFile);
 

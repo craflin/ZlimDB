@@ -16,7 +16,7 @@ class Subscription;
 class Table
 {
 public:
-  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(id), lastEntityId(0) {}
+  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(id), lastEntityId(0), minTimeOffset(0x7fffffffffffffffLL) {}
 
   uint32_t getId() const {return id;}
   const String& getName() const {return name;}
@@ -43,6 +43,8 @@ public:
   void_t removeSubscription(Subscription& subscription) {subscriptions.remove(&subscription);}
   HashSet<Subscription*>& getSubscriptions() {return subscriptions;}
 
+  timestamp_t updateTimeOffset(timestamp_t timeOffset);
+
 private:
   uint32_t id;
   bool valid;
@@ -53,4 +55,6 @@ private:
   TableFile tableFile;
   uint64_t lastEntityId;
   HashSet<Subscription*> subscriptions;
+  List<timestamp_t> timeOffsets;
+  timestamp_t minTimeOffset;
 };

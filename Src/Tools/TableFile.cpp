@@ -20,6 +20,7 @@ bool_t TableFile::create(const String& fileName)
   fileHeader.keyCount = 0;
   fileHeader.keySize = DEFAULT_KEY_SIZE;
   fileHeader.blockSize = DEFAULT_BLOCK_SIZE;
+  fileHeader.timeOffset = 0x7fffffffffffffffLL;
   *(FileHeader*)buffer = fileHeader;
   Memory::zero(buffer + sizeof(FileHeader), DEFAULT_KEY_SIZE + DEFAULT_BLOCK_SIZE);
   if(!fileWrite(&buffer, sizeof(buffer)))
@@ -264,7 +265,7 @@ bool_t TableFile::getNextCompressedBlock(uint64_t lastBlockId, uint64_t& blockId
   return lastError = noError, true;
 }
 
-bool_t TableFile::add(const DataHeader& data)
+bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
 {
 /*
   case #1 currentBlock is invalid
@@ -302,6 +303,16 @@ bool_t TableFile::add(const DataHeader& data)
       uncompressedBlockKey.size = newKey.size;
       lastId = data.id;
       lastTimestamp = data.timestamp;
+      if(timeOffset != fileHeader.timeOffset)
+      {
+        FileHeader newHeader = fileHeader;
+        newHeader.timeOffset = timeOffset;
+        if(!fileSeek(0))
+          return false;
+        if(!fileWrite(&newHeader, sizeof(newHeader)))
+          return false;
+        fileHeader.timeOffset = newHeader.timeOffset;
+      }
       return lastError = noError, true;
     }
   }
@@ -385,11 +396,13 @@ bool_t TableFile::add(const DataHeader& data)
     // increse index size
     FileHeader newHeader = fileHeader;
     newHeader.keySize = (uint32_t)(minKey->position - sizeof(FileHeader) - fileHeader.blockSize);
+    newHeader.timeOffset = timeOffset;
     if(!fileSeek(0))
       return false;
     if(!fileWrite(&newHeader, sizeof(newHeader)))
       return false;
     fileHeader.keySize = newHeader.keySize;
+    fileHeader.timeOffset = newHeader.timeOffset;
   }
 
   // compresse data and add it to end of file
@@ -420,11 +433,13 @@ bool_t TableFile::add(const DataHeader& data)
       return false;
     FileHeader newHeader = fileHeader;
     ++newHeader.keyCount;
+    newHeader.timeOffset = timeOffset;
     if(!fileSeek(0))
       return false;
     if(!fileWrite(&newHeader, sizeof(newHeader)))
       return false;
     fileHeader.keyCount = newHeader.keyCount;
+    fileHeader.timeOffset = newHeader.timeOffset;
     keys.append((const byte_t*)&key, sizeof(key));
     fileSize += blockSize;
   }
@@ -451,16 +466,28 @@ bool_t TableFile::add(const DataHeader& data)
       return false;
     FileHeader newHeader = fileHeader;
     ++newHeader.keyCount;
+    newHeader.timeOffset = timeOffset;
     if(!fileSeek(0))
       return false;
     if(!fileWrite(&newHeader, sizeof(newHeader)))
       return false;
     uncompressedBlockIndex = fileHeader.keyCount;
     fileHeader.keyCount = newHeader.keyCount;
+    fileHeader.timeOffset = timeOffset;
     keys.append((const byte_t*)&key, sizeof(key));
   }
   lastId = data.id;
   lastTimestamp = data.timestamp;
+  if(timeOffset != fileHeader.timeOffset)
+  {
+    FileHeader newHeader = fileHeader;
+    newHeader.timeOffset = timeOffset;
+    if(!fileSeek(0))
+      return false;
+    if(!fileWrite(&newHeader, sizeof(newHeader)))
+      return false;
+    fileHeader.timeOffset = newHeader.timeOffset;
+  }
   return lastError = noError, true;
 }
 

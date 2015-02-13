@@ -22,6 +22,8 @@ public:
   const Buffer& getResponseData() const {return responseBuffer;}
   Buffer& getResponseData() {return responseBuffer;}
   TableFile& getTableFile() {return tableFile;}
+  void_t setTimeOffset(timestamp_t timeOffset) {this->timeOffset = timeOffset;}
+  timestamp_t getTimeOffset() const {return timeOffset;}
 
 private:
   bool_t valid;
@@ -30,4 +32,5 @@ private:
   TableFile& tableFile;
   Buffer requestBuffer;
   Buffer responseBuffer;
+  timestamp_t timeOffset;
 };
