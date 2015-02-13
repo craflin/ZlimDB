@@ -10,6 +10,7 @@ bool_t Table::open()
   if(!tableFile.open(name))
     return false;
   lastEntityId = tableFile.getLastId();
+  minTimeOffset = tableFile.getTimeOffset();
   return true;
 }
 
@@ -26,7 +27,6 @@ bool_t Table::create(const ClientProtocol::Entity* entity)
     tableFile.close();
     return false;
   }
-  lastEntityId = 0;
   return true;
 }
 

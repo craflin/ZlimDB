@@ -35,6 +35,7 @@ public:
   bool_t open(const String& file);
   void_t close() {file2.close();}
   uint64_t getLastId() const {return lastId;}
+  timestamp_t getTimeOffset() const {return fileHeader.timeOffset;}
   bool_t add(const DataHeader& data, timestamp_t timeOffset);
   bool_t remove(uint64_t id);
   bool_t get(uint64_t id, Buffer& data, size_t dataOffset);
