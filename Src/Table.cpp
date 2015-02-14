@@ -10,7 +10,11 @@ bool_t Table::open()
   if(!tableFile.open(name))
     return false;
   lastEntityId = tableFile.getLastId();
-  minTimeOffset = tableFile.getTimeOffset();
+  if(lastEntityId != 0)
+  {
+    minTimeOffset = tableFile.getTimeOffset();
+    timeOffsets.append(minTimeOffset);
+  }
   return true;
 }
 
