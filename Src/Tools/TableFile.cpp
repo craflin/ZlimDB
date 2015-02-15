@@ -141,7 +141,7 @@ bool_t TableFile::open(const String& fileName)
   while(maxIdBufferSize >= sizeof(DataHeader))
   {
     lastId = maxIdBuffer->id;
-    lastTimestamp = maxIdBuffer->id;
+    lastTimestamp = maxIdBuffer->timestamp;
     maxIdBufferSize -= maxIdBuffer->size;
     maxIdBuffer = (const DataHeader*)((const byte_t*)maxIdBuffer + maxIdBuffer->size);
   }
@@ -493,6 +493,27 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
 
 bool_t TableFile::remove(uint64_t id)
 {
+  const Key* key = findBlockKey(id);
+  if(!key)
+    return false;
+
+  if(uncompressedBlockIndex >= 0 && key == &((const Key*)(const byte_t*)keys)[uncompressedBlockIndex])
+  {
+    Buffer uncompressedBlock = this->currentBlock;
+    DataHeader* dataHeader = (DataHeader*)(byte_t*)uncompressedBlock;
+    DataHeader* end = (DataHeader*)((byte_t*)dataHeader + uncompressedBlock.size());
+    for(; dataHeader < end; dataHeader = (DataHeader*)((byte_t*)dataHeader + dataHeader->size))
+      if(dataHeader->id == id)
+        goto found;
+    return lastError = notFoundError, false;
+  found:;
+
+  }
+  else
+  {
+    //??
+  }
+
   // todo ??
   return false;
 }
@@ -503,12 +524,14 @@ remove/update/insert()
 {
   if(sample in uncompressed block)
   {
-    remove from uncompressed block in ram
+    create copy of uncompressed block
+    remove from copy of uncompressed block
     compress block 
     write compressed block to end of file
     update index
     rewrite uncompressed block
     update index
+    remove from uncompressed block
   }
   else
   {
