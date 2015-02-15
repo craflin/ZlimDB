@@ -82,6 +82,7 @@ public:
   typedef zlimdb_sync_response SyncResponse;
   typedef zlimdb_entity Entity;
   typedef zlimdb_table_entity Table;
+  typedef zlimdb_user_entity User;
 
   static bool_t getString(const Header& header, size_t offset, size_t size, String& result)
   {

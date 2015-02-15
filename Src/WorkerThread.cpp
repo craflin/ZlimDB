@@ -85,9 +85,9 @@ void_t WorkerThread::handleLogin(const ClientProtocol::Header& header)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
   Buffer userBuffer;
-  if(!tableFile.get(1, userBuffer, 0) || userBuffer.size() < sizeof(WorkerProtocol::User))
+  if(!tableFile.get(1, userBuffer, 0) || userBuffer.size() < sizeof(ClientProtocol::User))
     return sendErrorResponse(header.request_id, ClientProtocol::invalidLogin);
-  const WorkerProtocol::User* user = (const WorkerProtocol::User*)(const byte_t*)userBuffer;
+  const ClientProtocol::User* user = (const ClientProtocol::User*)(const byte_t*)userBuffer;
 
   Buffer& responseBuffer = currentWorkerJob->getResponseData();
   responseBuffer.resize(sizeof(WorkerProtocol::LoginResponse));
@@ -96,10 +96,10 @@ void_t WorkerThread::handleLogin(const ClientProtocol::Header& header)
   response->header.size = sizeof(*response);
   response->header.message_type = ClientProtocol::loginResponse;
   response->header.request_id = header.request_id;
-  Memory::copy(&response->pw_salt, &user->pwSalt, sizeof(user->pwSalt));
+  Memory::copy(&response->pw_salt, &user->pw_salt, sizeof(user->pw_salt));
   for(uint16_t* i = (uint16_t*)response->auth_salt, * end = (uint16_t*)(response->auth_salt + sizeof(response->auth_salt)); i < end; ++i)
       *i = Math::random();
-  Sha256::hmac(response->auth_salt, sizeof(response->auth_salt), user->pwHash, sizeof(user->pwHash), response->signature);
+  Sha256::hmac(response->auth_salt, sizeof(response->auth_salt), user->pw_hash, sizeof(user->pw_hash), response->signature);
 }
 
 void_t WorkerThread::handleAdd(const ClientProtocol::AddRequest& add)

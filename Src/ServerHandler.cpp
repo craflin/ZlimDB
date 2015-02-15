@@ -43,15 +43,13 @@ bool_t ServerHandler::loadTables(const String& path)
   if(tables.isEmpty()) // add default user
   {
     String tableName("users/root/.user");
-    WorkerProtocol::User user;
-    user.id = 1;
-    user.time = Time::time();
-    user.size = sizeof(user);
-    for(uint16_t* i = (uint16_t*)user.pwSalt, * end = (uint16_t*)(user.pwSalt + sizeof(user.pwSalt)); i < end; ++i)
+    ClientProtocol::User user;
+    ClientProtocol::setEntityHeader(user.entity, 1, Time::time(), sizeof(user));
+    for(uint16_t* i = (uint16_t*)user.pw_salt, * end = (uint16_t*)(user.pw_salt + sizeof(user.pw_salt)); i < end; ++i)
       *i = Math::random();
-    Sha256::hmac(user.pwSalt, sizeof(user.pwSalt), (const byte_t*)"root", 4, user.pwHash);
+    Sha256::hmac(user.pw_salt, sizeof(user.pw_salt), (const byte_t*)"root", 4, user.pw_hash);
     Table& table = createTable(tableName);
-    if(!table.create(&user))
+    if(!table.create(&user.entity))
     {
       removeTable(table);
       return false;
