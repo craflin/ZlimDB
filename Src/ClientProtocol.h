@@ -49,6 +49,7 @@ public:
     writeFile = zlimdb_error_write_file,
     subscriptionNotFound = zlimdb_error_subscription_not_found,
     invalidMessageData = zlimdb_error_invalid_message_data,
+    entityId = zlimdb_error_entity_id,
   };
 
   struct HeaderFlag

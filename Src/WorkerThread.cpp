@@ -2,6 +2,7 @@
 #include <nstd/Console.h>
 #include <nstd/Debug.h>
 #include <nstd/Math.h>
+#include <nstd/Directory.h>
 
 #include "Tools/TableFile.h"
 #include "Tools/Sha256.h"
@@ -113,6 +114,10 @@ void_t WorkerThread::handleAdd(const ClientProtocol::AddRequest& add)
       if(!ClientProtocol::getString(add.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
         return sendErrorResponse(add.header.request_id, ClientProtocol::Error::invalidMessageData);
 
+      String dir = File::dirname(tableName);
+      if(dir != ".")
+        Directory::create(dir);
+
       if(!tableFile.create(tableName))
         return sendErrorResponse(add.header.request_id, ClientProtocol::Error::openFile);
 
@@ -129,8 +134,7 @@ void_t WorkerThread::handleAdd(const ClientProtocol::AddRequest& add)
       if(data->size != add.header.size - sizeof(add))
         return sendErrorResponse(add.header.request_id, ClientProtocol::Error::invalidMessageData);
       if(!tableFile.add(*data, currentWorkerJob->getTimeOffset()))
-        // todo: handle argument error
-        return sendErrorResponse(add.header.request_id, ClientProtocol::Error::writeFile);
+        return sendErrorResponse(add.header.request_id, tableFile.getLastError() ==TableFile::argumentError ? ClientProtocol::Error::entityId : ClientProtocol::Error::writeFile);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(ClientProtocol::AddResponse));

@@ -491,6 +491,12 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
   return lastError = noError, true;
 }
 
+bool_t TableFile::remove(uint64_t id)
+{
+  // todo ??
+  return false;
+}
+
 /*
 
 remove/update/insert()
