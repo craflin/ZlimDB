@@ -404,6 +404,7 @@ void_t ClientHandler::sendErrorResponse(uint32_t requestId, ClientProtocol::Erro
   response.header.size = sizeof(response);
   response.header.message_type = ClientProtocol::errorResponse;
   response.header.request_id = requestId;
+  response.header.flags = 0;
   response.error = error;
   client.send((const byte_t*)&response, sizeof(response));
 }
@@ -412,8 +413,9 @@ void_t ClientHandler::sendOkResponse(ClientProtocol::MessageType type, uint32_t 
 {
   ClientProtocol::Header response;
   response.size = sizeof(response);
-  response.message_type = ClientProtocol::errorResponse;
+  response.message_type = type;
   response.request_id = requestId;
+  response.flags = 0;
   sendResponse(response);
 }
 
