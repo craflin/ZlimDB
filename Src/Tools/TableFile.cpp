@@ -164,9 +164,6 @@ bool_t TableFile::get(uint64_t id, Buffer& result, size_t dataOffset)
   }
   else
   {
-    if(key->size < sizeof(uint16_t))
-      return lastError = dataError, false;
-
       //seek to position
     if(!fileSeek(key->position))
       return false;
@@ -787,6 +784,8 @@ int binsearch_5( arr_t array[], size_t size, arr_t key, size_t *index ){
 
 /*private*/ bool_t TableFile::decompressBuffer(const Buffer& compressedBuffer, Buffer& buffer)
 {
+  if(compressedBuffer.size() < sizeof(uint16_t))
+    return lastError = dataError, false;
   int_t originalSize = *(const uint16_t*)(const byte_t*)compressedBuffer;
   buffer.resize(originalSize);
   if(LZ4_decompress_safe((const char*)(const byte_t*)compressedBuffer + sizeof(uint16_t), (char_t*)(byte_t*)buffer, buffer.size() - sizeof(uint16_t), originalSize) != originalSize)
