@@ -74,7 +74,7 @@ private:
   ssize_t uncompressedBlockIndex;
   ssize_t firstCompressedBlockIndex;
   uint64_t fileSize;
-  Buffer currentBlock; // todo: rename to uncompressedBlock
+  Buffer uncompressedBlock;
   uint64_t lastId;
   uint64_t lastTimestamp;
   Error lastError;
