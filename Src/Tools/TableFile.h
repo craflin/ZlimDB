@@ -80,11 +80,17 @@ private:
   Error lastError;
 
   bool_t fileWrite(const void_t* buffer, size_t size);
+  bool_t fileWrite(const Buffer& buffer);
   bool_t fileRead(void_t* buffer, size_t size);
+  bool_t fileRead(Buffer& buffer);
   bool_t fileSeek(uint64_t position);
 
   const Key* findBlockKey(uint64_t id);
   const Key* findBlockKeyByTime(uint64_t timestamp);
   bool_t getCompressedBlock(const Key* key, Buffer& data, size_t dataOffset);
 
+  static void_t compressBuffer(const Buffer& buffer, Buffer& compressedBuffer);
+  static void_t compressBuffer(const Buffer& buffer, Buffer& compressedBuffer, size_t offset);
+  static void_t compressBuffer(const void_t* data, size_t size, Buffer& compressedBuffer);
+  bool_t decompressBuffer(const Buffer& compressedBuffer, Buffer& buffer);
 };
