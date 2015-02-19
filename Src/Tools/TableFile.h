@@ -33,6 +33,7 @@ public:
 
   bool_t create(const String& file);
   bool_t open(const String& file);
+  bool_t isOpen() const {return file2.isOpen();}
   void_t close() {file2.close();}
   uint64_t getLastId() const {return lastId;}
   timestamp_t getTimeOffset() const {return fileHeader.timeOffset;}

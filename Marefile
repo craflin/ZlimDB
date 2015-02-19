@@ -22,6 +22,28 @@ targets = {
       cppFlags += { "-Wno-delete-non-virtual-dtor" }
     }
   }
+  
+  UnitTest = cppApplication + {
+    folder = "Tests"
+    dependencies = { "libnstd", "liblz4" }
+    includePaths = { "Src", "Ext/libnstd/include", "Ext/lz4", "Ext/libzlimdbclient/include" }
+    libPaths = { "Build/$(configuration)/libnstd", "Build/$(configuration)/liblz4" }
+    libs = { "nstd", "lz4" }
+    root = { "Test", "Src" }
+    files = {
+      "Src/Tools/TableFile.cpp" = cppSource
+      "Src/Tools/TableFile.h"
+      "Test/**.cpp" = cppSource
+      "Test/**.h"
+    }
+    if tool == "vcxproj" {
+      linkFlags += { "/SUBSYSTEM:CONSOLE" }
+    }
+    if platform == "Linux" {
+      libs += { "pthread", "rt" }
+      cppFlags += { "-Wno-delete-non-virtual-dtor" }
+    }
+  }
 
   include "Ext/libnstd/libnstd.mare"
   libnstd += {
