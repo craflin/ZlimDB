@@ -51,10 +51,11 @@ private:
   {
     uint32_t magic;
     uint32_t version;
-    uint32_t keyCount;
-    uint32_t keySize;
     uint16_t blockSize;
     int64_t timeOffset;
+    uint64_t keyPosition;
+    uint32_t keySize;
+    uint32_t keyCount;
   };
 
   struct Key
@@ -88,6 +89,10 @@ private:
   const Key* findBlockKey(uint64_t id);
   const Key* findBlockKeyByTime(uint64_t timestamp);
   bool_t getCompressedBlock(const Key* key, Buffer& data, size_t dataOffset);
+
+  bool_t removeEntity(uint64_t entity, Buffer& block);
+  bool_t increaseKeyBlockSize(size_t freeSize);
+  void_t findFirstCompressedBlock();
 
   static void_t compressBuffer(const Buffer& buffer, Buffer& compressedBuffer);
   static void_t compressBuffer(const Buffer& buffer, Buffer& compressedBuffer, size_t offset);
