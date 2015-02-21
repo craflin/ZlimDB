@@ -42,35 +42,39 @@ void_t testTableFile()
         ASSERT(file.add(*dataHeader, 0));
       }
     }
-    ASSERT(file.getTimeOffset() == 0);
-    uint64_t blockId;
-    Buffer compressedBlock;
-    byte_t decompressedBuffer[0xffff];
-    int_t i = 1;
-    uint64_t timestamp = 0;
-    VERIFY(file.getFirstCompressedBlock(blockId, compressedBlock, 0));
-    for(;;)
+    for(int j = 0; j < 2; ++j)
     {
-      size_t rawSize = *(uint16_t*)(const byte_t*)compressedBlock;
-      int_t check = LZ4_decompress_safe((const char*)(const byte_t*)compressedBlock + sizeof(uint16_t), (char*)decompressedBuffer, compressedBlock.size() - sizeof(uint16_t), sizeof(decompressedBuffer));
-      ASSERT(check == rawSize);
-      TableFile::DataHeader* dataHeader = (TableFile::DataHeader*)decompressedBuffer;
-      TableFile::DataHeader* dataHeaderEnd = (TableFile::DataHeader*)(decompressedBuffer + rawSize);
-      for(; dataHeader < dataHeaderEnd; dataHeader = (TableFile::DataHeader*)((byte_t*)dataHeader + dataHeader->size))
+      if(j > 0)
+        file.open("test.test");
+      uint64_t blockId;
+      Buffer compressedBlock;
+      byte_t decompressedBuffer[0xffff];
+      VERIFY(file.getFirstCompressedBlock(blockId, compressedBlock, 0));
+      int_t i = 1;
+      uint64_t timestamp = 0;
+      for(;;)
       {
-        ASSERT(dataHeader->id == i);
-        ASSERT(dataHeader->timestamp > timestamp);
-        timestamp = dataHeader->timestamp;
-        ++i;
+      
+        ASSERT(file.getTimeOffset() == 0);
+        size_t rawSize = *(uint16_t*)(const byte_t*)compressedBlock;
+        int_t check = LZ4_decompress_safe((const char*)(const byte_t*)compressedBlock + sizeof(uint16_t), (char*)decompressedBuffer, compressedBlock.size() - sizeof(uint16_t), sizeof(decompressedBuffer));
+        ASSERT(check == rawSize);
+        TableFile::DataHeader* dataHeader = (TableFile::DataHeader*)decompressedBuffer;
+        TableFile::DataHeader* dataHeaderEnd = (TableFile::DataHeader*)(decompressedBuffer + rawSize);
+        for(; dataHeader < dataHeaderEnd; dataHeader = (TableFile::DataHeader*)((byte_t*)dataHeader + dataHeader->size))
+        {
+          ASSERT(dataHeader->id == i);
+          ASSERT(dataHeader->timestamp > timestamp);
+          timestamp = dataHeader->timestamp;
+          ++i;
+        }
+        if(!file.getNextCompressedBlock(blockId, blockId, compressedBlock, 0))
+          break;
       }
-      if(i == 12561)
-      {
-        int k = 42;
-      }
-      if(!file.getNextCompressedBlock(blockId, blockId, compressedBlock, 0))
-        break;
+      ASSERT(i == 100000);
+      file.close();
     }
-    ASSERT(i == 100000);
+    ASSERT(File::unlink("test.test"));
   }
 
   // todo: test remove bottom to top
