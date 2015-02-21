@@ -133,7 +133,7 @@ void_t ClientHandler::handleAuth(const ClientProtocol::AuthRequest& auth)
   Memory::zero(&signature, sizeof(signature));
   if(failed)
   {
-    sendErrorResponse(auth.header.request_id, ClientProtocol::Error::invalidLogin);
+    sendErrorResponse(auth.header.request_id, ClientProtocol::invalidLogin);
     return;
   }
 

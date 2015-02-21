@@ -66,7 +66,7 @@ bool_t TableFile::open(const String& fileName)
   uint32_t compressedKeyCount = fileHeader.keyCount;
   if(fileHeader.keyCount > 0)
   {
-    const Key* firstKey = (const Key*)(const byte_t*)keys, * i = firstKey;
+    const Key* firstKey = (const Key*)(const byte_t*)keys;
     const Key* lastKey = firstKey + fileHeader.keyCount - 1;
     if(lastKey->position == fileHeader.keyPosition + fileHeader.keySize) // last key is uncompressed
     {
@@ -375,7 +375,7 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
       return false;
 
     // create new key
-    Key key = {data.id, data.timestamp, fileSize, compressedBuffer.size()};
+    Key key = {data.id, data.timestamp, fileSize, (uint16_t)compressedBuffer.size()};
     uint64_t position = fileHeader.keyPosition + fileHeader.keyCount * sizeof(Key);
     if(!fileSeek(position))
       return false;
@@ -748,7 +748,7 @@ remove/update/insert()
 
 bool_t TableFile::fileWrite(const void_t* buffer, size_t size)
 {
-  if(file2.write(buffer, size) != size)
+  if(file2.write(buffer, size) != (ssize_t)size)
     return lastError = fileError, false;
   return true;
 }
@@ -756,14 +756,14 @@ bool_t TableFile::fileWrite(const void_t* buffer, size_t size)
 bool_t TableFile::fileWrite(const Buffer& buffer)
 {
   size_t size = buffer.size();
-  if(file2.write((const byte_t*)buffer, size) != size)
+  if(file2.write((const byte_t*)buffer, size) != (ssize_t)size)
     return lastError = fileError, false;
   return true;
 }
 
 bool_t TableFile::fileRead(void_t* buffer, size_t size)
 {
-  if(file2.read(buffer, size) != size)
+  if(file2.read(buffer, size) != (ssize_t)size)
     return lastError = ::Error::getLastError() ? fileError : dataError, false;
   return true;
 }
@@ -771,14 +771,14 @@ bool_t TableFile::fileRead(void_t* buffer, size_t size)
 bool_t TableFile::fileRead(Buffer& buffer)
 {
   size_t size = buffer.size();
-  if(file2.read((byte_t*)buffer, size) != size)
+  if(file2.read((byte_t*)buffer, size) != (ssize_t)size)
     return lastError = ::Error::getLastError() ? fileError : dataError, false;
   return true;
 }
 
 bool_t TableFile::fileSeek(uint64_t position)
 {
-  if(file2.seek(position) != position)
+  if(file2.seek(position) != (int64_t)position)
     return lastError = ::Error::getLastError() ? fileError : dataError, false;
   return true;
 }
@@ -789,7 +789,7 @@ bool_t TableFile::fileSeek(uint64_t position)
   const Key* key = (const Key*)(const byte_t*)keys;
   const Key* keyEnd = key + keys.size() / sizeof(Key);
   if(key == keyEnd || id < key->id)
-    return lastError = notFoundError, false;
+    return lastError = notFoundError, (const Key*)0;
   if(keyEnd - key > 1)
     for(size_t stepSize = ((keyEnd - key) + 1) >> 1;; stepSize = (stepSize + 1) >> 1)
     {
@@ -865,7 +865,7 @@ int binsearch_5( arr_t array[], size_t size, arr_t key, size_t *index ){
   const Key* key = (const Key*)(const byte_t*)keys;
   const Key* keyEnd = key + keys.size() / sizeof(Key);
   if(key == keyEnd || timestamp < key->timestamp)
-    return lastError = notFoundError, false;
+    return lastError = notFoundError, (const Key*)0;
   if(keyEnd - key > 1)
     for(size_t stepSize = ((keyEnd - key) + 1) >> 1;; stepSize = (stepSize + 1) >> 1)
     {

@@ -112,14 +112,14 @@ void_t WorkerThread::handleAdd(const ClientProtocol::AddRequest& add)
       const ClientProtocol::Table* tableEntity = (const ClientProtocol::Table*)(&add + 1);
       String tableName;
       if(!ClientProtocol::getString(add.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
-        return sendErrorResponse(add.header.request_id, ClientProtocol::Error::invalidMessageData);
+        return sendErrorResponse(add.header.request_id, ClientProtocol::invalidMessageData);
 
       String dir = File::dirname(tableName);
       if(dir != ".")
         Directory::create(dir);
 
       if(!tableFile.create(tableName))
-        return sendErrorResponse(add.header.request_id, ClientProtocol::Error::openFile);
+        return sendErrorResponse(add.header.request_id, ClientProtocol::openFile);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(ClientProtocol::AddResponse));
@@ -132,9 +132,9 @@ void_t WorkerThread::handleAdd(const ClientProtocol::AddRequest& add)
     {
       const TableFile::DataHeader* data = (const TableFile::DataHeader*)(&add + 1);
       if(data->size != add.header.size - sizeof(add))
-        return sendErrorResponse(add.header.request_id, ClientProtocol::Error::invalidMessageData);
+        return sendErrorResponse(add.header.request_id, ClientProtocol::invalidMessageData);
       if(!tableFile.add(*data, currentWorkerJob->getTimeOffset()))
-        return sendErrorResponse(add.header.request_id, tableFile.getLastError() ==TableFile::argumentError ? ClientProtocol::Error::entityId : ClientProtocol::Error::writeFile);
+        return sendErrorResponse(add.header.request_id, tableFile.getLastError() ==TableFile::argumentError ? ClientProtocol::entityId : ClientProtocol::writeFile);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(ClientProtocol::AddResponse));
@@ -168,10 +168,10 @@ void_t WorkerThread::handleQueryOrSubscribe(ClientProtocol::QueryRequest& query,
       if(query.param == 0)
       {
         if(!tableFile.getFirstCompressedBlock(blockId, responseBuffer, sizeof(ClientProtocol::Header)))
-          return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::Error::entityNotFound : ClientProtocol::Error::readFile);
+          return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::entityNotFound : ClientProtocol::readFile);
       }
       else if(!tableFile.getNextCompressedBlock(query.param, blockId, responseBuffer, sizeof(ClientProtocol::Header)))
-        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::Error::entityNotFound : ClientProtocol::Error::readFile);
+        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::entityNotFound : ClientProtocol::readFile);
       ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = ClientProtocol::HeaderFlag::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
@@ -189,7 +189,7 @@ void_t WorkerThread::handleQueryOrSubscribe(ClientProtocol::QueryRequest& query,
   case ClientProtocol::QueryType::byId:
     {
       if(!tableFile.get(query.param, responseBuffer, sizeof(ClientProtocol::Header)))
-        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::Error::entityNotFound : ClientProtocol::Error::readFile);
+        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::entityNotFound : ClientProtocol::readFile);
       ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = 0;
       response->message_type = responseType;
@@ -201,7 +201,7 @@ void_t WorkerThread::handleQueryOrSubscribe(ClientProtocol::QueryRequest& query,
     {
       uint64_t blockId;
       if(!tableFile.getCompressedBlock(query.param, blockId, responseBuffer, sizeof(ClientProtocol::Header)))
-        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::Error::entityNotFound : ClientProtocol::Error::readFile);
+        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::entityNotFound : ClientProtocol::readFile);
       ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = ClientProtocol::HeaderFlag::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
@@ -221,7 +221,7 @@ void_t WorkerThread::handleQueryOrSubscribe(ClientProtocol::QueryRequest& query,
     {
       uint64_t blockId;
       if(!tableFile.getCompressedBlockByTime(query.param, blockId, responseBuffer, sizeof(ClientProtocol::Header)))
-        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::Error::entityNotFound : ClientProtocol::Error::readFile);
+        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? ClientProtocol::entityNotFound : ClientProtocol::readFile);
       ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
       response->flags = ClientProtocol::HeaderFlag::compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
