@@ -59,7 +59,9 @@ Server::Client* Server::pair(Socket& socket)
   if(!socket.pair(*clientSocket) ||
       !clientSocket->setNonBlocking() ||
       !clientSocket->setKeepAlive() ||
+#ifdef _WIN32
       !clientSocket->setNoDelay() ||
+#endif
       (sendBufferSize > 0 && !clientSocket->setSendBufferSize(sendBufferSize)) ||
       (receiveBufferSize > 0 && !clientSocket->setReceiveBufferSize(receiveBufferSize)))
   {
