@@ -292,6 +292,7 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
         return false;
 
       // update key of uncompressed block
+      size_t oldUncompressedBlockSize = uncompressedBlockKey.size;
       Key newKey = uncompressedBlockKey;
       newKey.size += data.size;
       position = fileHeader.keyPosition + (const byte_t*)&uncompressedBlockKey - (const byte_t*)keys;
@@ -304,8 +305,8 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
       lastTimestamp = data.timestamp;
 
       // add data to uncompressed block in memory
-      uncompressedBlock.resize(uncompressedBlockKey.size + data.size);
-      DataHeader* dataHeader = (DataHeader*)((byte_t*)uncompressedBlock + uncompressedBlockKey.size);
+      uncompressedBlock.resize(uncompressedBlockKey.size);
+      DataHeader* dataHeader = (DataHeader*)((byte_t*)uncompressedBlock + oldUncompressedBlockSize);
       Memory::copy(dataHeader, &data, data.size);
 
       // update file header
@@ -646,7 +647,7 @@ bool_t TableFile::remove(uint64_t id)
       return false;
 
     // update index of first compressed block
-    uint64_t position = fileHeader.keyPosition + (const byte_t*)&firstCompressedBlockKey - (const byte_t*)keys;
+    uint64_t position = fileHeader.keyPosition + (const byte_t*)firstCompressedBlockKey - (const byte_t*)keys;
     if(!fileSeek(position))
       return false;
     Key newKey = *firstCompressedBlockKey;
