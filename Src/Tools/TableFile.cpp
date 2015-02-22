@@ -459,6 +459,7 @@ bool_t TableFile::remove(uint64_t id)
     // remove block?
     if(uncompressedBlock.isEmpty())
     {
+      ASSERT(fileHeader.keyCount - 1 == uncompressedBlockIndex);
       FileHeader newFileHeader = fileHeader;
       --newFileHeader.keyCount;
       if(!fileSeek(0))
@@ -466,7 +467,9 @@ bool_t TableFile::remove(uint64_t id)
       if(!fileWrite(&newFileHeader, sizeof(newFileHeader)))
         return false;
       fileHeader.keyCount = newFileHeader.keyCount;
+      keys.resize(fileHeader.keyCount * sizeof(Key));
       uncompressedBlockIndex = -1;
+      this->uncompressedBlock.clear();
       return true;
     }
 
@@ -481,7 +484,7 @@ bool_t TableFile::remove(uint64_t id)
       return false;
 
     // update index of uncompressed block
-    ASSERT(fileHeader.keyCount == uncompressedBlockIndex);
+    ASSERT(fileHeader.keyCount - 1 == uncompressedBlockIndex);
     Key& uncompressedBlockKey = ((Key*)(byte_t*)keys)[uncompressedBlockIndex];
     Key newKey = uncompressedBlockKey;
     newKey.position = fileSize;
@@ -518,7 +521,7 @@ bool_t TableFile::remove(uint64_t id)
       return false;
     uncompressedBlockKey.position = newKey.position;
     uncompressedBlockKey.size = newKey.size;
-    uncompressedBlockIndex = fileHeader.keyCount;
+    uncompressedBlockIndex = fileHeader.keyCount - 1;
     fileSize -= compressedBlock.size();
 
     // update uncompressed block
@@ -551,15 +554,15 @@ bool_t TableFile::remove(uint64_t id)
         return false;
 
       // copy key block without the key to be removed to end of the used key buffer
-      size_t usedKeySize = fileHeader.keyCount * sizeof(Key);
-      uint64_t newKeyPosition = fileHeader.keyPosition + usedKeySize;
+      size_t oldUsedKeySize = fileHeader.keyCount * sizeof(Key);
+      uint64_t newKeyPosition = fileHeader.keyPosition + oldUsedKeySize;
       if(!fileSeek(newKeyPosition))
         return false;
       if((const byte_t*)key > (const byte_t*)keys)
         if(!fileWrite((const byte_t*)keys, (const byte_t*)key - (const byte_t*)keys))
           return false;
       const byte_t* nextKey = (const byte_t*)key + sizeof(Key);
-      const byte_t* keysEnd = (const byte_t*)keys + usedKeySize;
+      const byte_t* keysEnd = (const byte_t*)keys + oldUsedKeySize;
       if(nextKey < keysEnd)
         if(!fileWrite(nextKey, keysEnd - nextKey))
           return false;
@@ -574,12 +577,15 @@ bool_t TableFile::remove(uint64_t id)
         return false;
       fileHeader.keyPosition = newFileHeader.keyPosition;
       fileHeader.keyCount = newFileHeader.keyCount;
-      usedKeySize -= sizeof(Key);
 
       // remove key from keys in ram
       if(nextKey < keysEnd)
         Memory::move((byte_t*)key, nextKey, keysEnd - nextKey);
-      keys.resize(usedKeySize);
+      keys.resize(fileHeader.keyCount * sizeof(Key));
+
+      // update uncompresed key index
+      if(uncompressedBlockIndex >= 0)
+        uncompressedBlockIndex = fileHeader.keyCount - 1;
 
       // update first compressed block index?
        if(key == &((const Key*)(const byte_t*)keys)[firstCompressedBlockIndex])
@@ -623,6 +629,10 @@ bool_t TableFile::remove(uint64_t id)
     ((Key*)key)->position = newKey.position;
     ((Key*)key)->size = newKey.size;
     fileSize += newKey.size;
+
+    // update first compressed block index?
+    if(key == &((const Key*)(const byte_t*)keys)[firstCompressedBlockIndex])
+      findFirstCompressedBlock();
   }
   return true;
 }
@@ -903,7 +913,7 @@ found:;
   size_t entitySize = dataHeader->size;
   if(remainingDataSize > entitySize)
     Memory::move(dataHeader, (const byte_t*)dataHeader + entitySize, remainingDataSize - entitySize);
-  uncompressedBlock.resize(block.size() - entitySize);
+  block.resize(block.size() - entitySize);
   return true;
 }
 
@@ -937,7 +947,7 @@ found:;
     return lastError = dataError, false;
   int_t originalSize = *(const uint16_t*)(const byte_t*)compressedBuffer;
   buffer.resize(originalSize);
-  if(LZ4_decompress_safe((const char*)(const byte_t*)compressedBuffer + sizeof(uint16_t), (char_t*)(byte_t*)buffer, buffer.size() - sizeof(uint16_t), originalSize) != originalSize)
+  if(LZ4_decompress_safe((const char*)(const byte_t*)compressedBuffer + sizeof(uint16_t), (char_t*)(byte_t*)buffer, compressedBuffer.size() - sizeof(uint16_t), originalSize) != originalSize)
     return lastError = dataError, false;
   return true;
 }

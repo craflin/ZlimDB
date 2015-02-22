@@ -15,12 +15,20 @@ void_t testTableFile()
     ASSERT(file.create("test.test"));
     ASSERT(file.isOpen());
     ASSERT(file.getLastId() == 0);
+    uint64_t blockId;
+    Buffer buffer;
+    ASSERT(file.getFirstCompressedBlock(blockId, buffer, 0));
+    ASSERT(buffer.size() == sizeof(uint16_t));
+    ASSERT(*(const uint16_t*)(const byte_t*)buffer == 0);
     ASSERT(file.getTimeOffset() == 0x7fffffffffffffffLL);
     file.close();
     ASSERT(!file.isOpen());
     ASSERT(file.open("test.test"));
     ASSERT(file.isOpen());
     ASSERT(file.getLastId() == 0);
+    ASSERT(file.getFirstCompressedBlock(blockId, buffer, 0));
+    ASSERT(buffer.size() == sizeof(uint16_t));
+    ASSERT(*(const uint16_t*)(const byte_t*)buffer == 0);
     ASSERT(file.getTimeOffset() == 0x7fffffffffffffffLL);
     file.close();
     ASSERT(File::unlink("test.test"));
@@ -77,10 +85,61 @@ void_t testTableFile()
     ASSERT(File::unlink("test.test"));
   }
 
-  // todo: test remove bottom to top
+  // test remove bottom to top
+  {
+    TableFile file(213);
+    ASSERT(file.create("test.test"));
+    byte_t entityBuffer[51];
+    TableFile::DataHeader* dataHeader = (TableFile::DataHeader*)entityBuffer;
+    dataHeader->timestamp = 323;
+    dataHeader->size = sizeof(entityBuffer);
+    for(int_t i = 1; i < 100000; ++i)
+    {
+      dataHeader->id = i;
+      ++dataHeader->timestamp;
+      ASSERT(file.add(*dataHeader, 0));
+    }
+    for(int_t i = 100000 - 1; i >= 1; --i)
+      ASSERT(file.remove(i));
+    uint64_t blockId;
+    Buffer buffer;
+    ASSERT(file.getFirstCompressedBlock(blockId, buffer, 0));
+    ASSERT(buffer.size() == sizeof(uint16_t));
+    ASSERT(*(const uint16_t*)(const byte_t*)buffer == 0);
+    file.close();
+    ASSERT(File::unlink("test.test"));
+  }
 
-  // todo: test remove top to bottom
+  // test remove top to bottom
+  {
+    TableFile file(213);
+    ASSERT(file.create("test.test"));
+    byte_t entityBuffer[51];
+    TableFile::DataHeader* dataHeader = (TableFile::DataHeader*)entityBuffer;
+    dataHeader->timestamp = 323;
+    dataHeader->size = sizeof(entityBuffer);
+    for(int_t i = 1; i < 100000; ++i)
+    {
+      dataHeader->id = i;
+      ++dataHeader->timestamp;
+      ASSERT(file.add(*dataHeader, 0));
+    }
+    for(int_t i = 1; i < 100000; ++i)
+    {
+      if(i == 99921)
+      {
+        int k = 42;
+      }
+      ASSERT(file.remove(i));
+    }
+    uint64_t blockId;
+    Buffer buffer;
+    ASSERT(file.getFirstCompressedBlock(blockId, buffer, 0));
+    ASSERT(buffer.size() == sizeof(uint16_t));
+    ASSERT(*(const uint16_t*)(const byte_t*)buffer == 0);
+    file.close();
+    ASSERT(File::unlink("test.test"));
+  }
 
   // todo: test add and random remove
-
 }
