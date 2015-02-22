@@ -73,8 +73,6 @@ private:
   File file2;
   FileHeader fileHeader;
   Buffer keys;
-  ssize_t uncompressedBlockIndex;
-  ssize_t firstCompressedBlockIndex;
   uint64_t fileSize;
   Buffer uncompressedBlock;
   uint64_t lastId;
@@ -87,13 +85,15 @@ private:
   bool_t fileRead(Buffer& buffer);
   bool_t fileSeek(uint64_t position);
 
-  const Key* findBlockKey(uint64_t id);
+  bool addNewBlock(const DataHeader& data, timestamp_t timeOffset);
+
+  Key* findBlockKey(uint64_t id);
   const Key* findBlockKeyByTime(uint64_t timestamp);
   bool_t getCompressedBlock(const Key* key, Buffer& data, size_t dataOffset);
 
   bool_t removeEntity(uint64_t entity, Buffer& block);
   bool_t increaseKeyBlockSize(size_t freeSize);
-  void_t findFirstCompressedBlock();
+  Key* findFirstCompressedBlock();
 
   static void_t compressBuffer(const Buffer& buffer, Buffer& compressedBuffer);
   static void_t compressBuffer(const Buffer& buffer, Buffer& compressedBuffer, size_t offset);
