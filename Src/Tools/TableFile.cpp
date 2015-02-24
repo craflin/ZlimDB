@@ -412,6 +412,86 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
   return true;
 }
 
+bool_t TableFile::update(const DataHeader& data)
+{
+  Key* key = findBlockKey(data.id);
+  if(!key)
+    return false;
+
+  // is entity in uncompressed block?
+  if(key->position == fileHeader.keyPosition + fileHeader.keySize)
+  {
+    // create copy of uncompressed block
+    Buffer uncompressedBlock = this->uncompressedBlock;
+
+    // find and remove entity from copy of uncompressed block
+    if(!updateEntity(data, uncompressedBlock))
+      return false;
+
+    // compress copy of uncompressed block
+    Buffer compressedBlock;
+    compressBuffer(uncompressedBlock, compressedBlock);
+
+    // move copy of uncomprossed block to end of file
+    if(!moveCompressedBlockToEnd(compressedBlock, *key))
+      return false;
+
+    // reset uncompressed block
+    this->uncompressedBlock.clear();
+
+    // rewrite uncompressed block
+    uint64_t uncompressedBlockPosition = fileHeader.keyPosition + fileHeader.keySize;
+    if(!fileSeek(uncompressedBlockPosition))
+      return false;
+    if(!fileWrite(uncompressedBlock))
+      return false;
+
+    // update index of uncompressed block
+    Key newKey = *key;
+    newKey.position = uncompressedBlockPosition;
+    newKey.size = uncompressedBlock.size();
+    if(!fileSeek(fileHeader.keyPosition + ((const byte_t*)key - (const byte_t*)keys)))
+      return false;
+    if(!fileWrite(&newKey, sizeof(newKey)))
+      return false;
+    key->position = newKey.position;
+    key->size = newKey.size;
+    fileSize -= compressedBlock.size();
+
+    // update uncompressed block
+    this->uncompressedBlock.swap(uncompressedBlock);
+  }
+
+  else // entity is in a compressed block
+  {
+    // read compressed block
+    Buffer compressedBlock;
+    compressedBlock.resize(key->size);
+    if(!fileSeek(key->position))
+      return false;
+    if(!fileRead(compressedBlock))
+      return false;
+
+    // decompress block
+    Buffer block;
+    if(!decompressBuffer(compressedBlock, block))
+      return false;
+
+    // remove entity from decompressed block
+    if(!updateEntity(data, block))
+      return false;
+
+    // compress block
+    compressBuffer(block, compressedBlock);
+
+    // move compressed block to end of file
+    if(!moveCompressedBlockToEnd(compressedBlock, *key))
+      return false;
+  }
+  return lastError = noError, true;
+
+}
+
 bool_t TableFile::remove(uint64_t id)
 {
   Key* key = findBlockKey(id);
@@ -825,13 +905,13 @@ int binsearch_5( arr_t array[], size_t size, arr_t key, size_t *index ){
   return key;
 }
 
-bool_t TableFile::removeEntity(uint64_t entityId, Buffer& block)
+bool_t TableFile::removeEntity(uint64_t id, Buffer& block)
 {
   DataHeader* dataHeader = (DataHeader*)(byte_t*)block;
   size_t remainingDataSize = block.size();
   while(remainingDataSize >= sizeof(DataHeader))
   {
-    if(dataHeader->id == entityId)
+    if(dataHeader->id == id)
       goto found;
     dataHeader = (DataHeader*)((byte_t*)dataHeader + dataHeader->size);
     remainingDataSize -= dataHeader->size;
@@ -839,11 +919,37 @@ bool_t TableFile::removeEntity(uint64_t entityId, Buffer& block)
   return lastError = notFoundError, false;
 found:;
 
-  // remove entity from copy of uncompressed block
+  // remove entity from block
   size_t entitySize = dataHeader->size;
   if(remainingDataSize > entitySize)
     Memory::move(dataHeader, (const byte_t*)dataHeader + entitySize, remainingDataSize - entitySize);
   block.resize(block.size() - entitySize);
+  return true;
+}
+
+bool_t TableFile::updateEntity(const DataHeader& data, Buffer& block)
+{
+  DataHeader* dataHeader = (DataHeader*)(byte_t*)block;
+  size_t remainingDataSize = block.size();
+  uint64_t id = data.id;
+  while(remainingDataSize >= sizeof(DataHeader))
+  {
+    if(dataHeader->id == id)
+      goto found;
+    dataHeader = (DataHeader*)((byte_t*)dataHeader + dataHeader->size);
+    remainingDataSize -= dataHeader->size;
+  }
+  return lastError = notFoundError, false;
+found:;
+
+  // update entity in block
+  size_t entitySize = dataHeader->size;
+  size_t oldBlockSize = block.size();
+  block.resize(oldBlockSize + data.size);
+  if(remainingDataSize > entitySize)
+    Memory::move(dataHeader + data.size, (const byte_t*)dataHeader + entitySize, remainingDataSize - entitySize);
+  Memory::copy(dataHeader, &data, data.size);
+  block.resize(oldBlockSize - entitySize + data.size);
   return true;
 }
 

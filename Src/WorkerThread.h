@@ -28,6 +28,7 @@ private:
   void_t handleMessage(const ClientProtocol::Header& header);
   void_t handleLogin(const ClientProtocol::Header& header);
   void_t handleAdd(const ClientProtocol::AddRequest& add);
+  void_t handleUpdate(const ClientProtocol::UpdateRequest& update);
   void_t handleRemove(const ClientProtocol::RemoveRequest& remove);
   void_t handleQuery(ClientProtocol::QueryRequest& query);
   void_t handleSubscribe(ClientProtocol::SubscribeRequest& subscribe);

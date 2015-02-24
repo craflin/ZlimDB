@@ -69,6 +69,9 @@ void_t WorkerThread::handleMessage(const ClientProtocol::Header& header)
   case ClientProtocol::addRequest:
     handleAdd((ClientProtocol::AddRequest&)header);
     break;
+  case ClientProtocol::updateRequest:
+    handleUpdate((ClientProtocol::UpdateRequest&)header);
+    break;
   case ClientProtocol::removeRequest:
     handleRemove((ClientProtocol::RemoveRequest&)header);
     break;
@@ -149,6 +152,34 @@ void_t WorkerThread::handleAdd(const ClientProtocol::AddRequest& add)
   }
 }
 
+void_t WorkerThread::handleUpdate(const ClientProtocol::UpdateRequest& update)
+{
+  TableFile& tableFile = currentWorkerJob->getTableFile();
+  switch(update.table_id)
+  {
+  case ClientProtocol::tablesTable:
+    {
+      // todo
+      break;
+    }
+  default:
+    {
+      const TableFile::DataHeader* data = (const TableFile::DataHeader*)(&update + 1);
+      if(data->size != update.header.size - sizeof(update))
+        return sendErrorResponse(update.header.request_id, ClientProtocol::invalidMessageData);
+
+      if(!tableFile.update(*data))
+        return sendErrorResponse(update.header.request_id, tableFile.getLastError() ==TableFile::notFoundError ? ClientProtocol::entityNotFound : ClientProtocol::writeFile);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(ClientProtocol::Header));
+      ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(*response, ClientProtocol::updateResponse, sizeof(*response), update.header.request_id);
+      break;
+    }
+  }
+}
+
 void_t WorkerThread::handleRemove(const ClientProtocol::RemoveRequest& remove)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
@@ -170,7 +201,8 @@ void_t WorkerThread::handleRemove(const ClientProtocol::RemoveRequest& remove)
       ClientProtocol::setHeader(*response, ClientProtocol::removeResponse, sizeof(*response), remove.header.request_id);
       break;
     }
-  }}
+  }
+}
 
 void_t WorkerThread::handleQuery(ClientProtocol::QueryRequest& query)
 {

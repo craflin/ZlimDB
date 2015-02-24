@@ -38,7 +38,7 @@ public:
   uint64_t getLastId() const {return lastId;}
   timestamp_t getTimeOffset() const {return fileHeader.timeOffset;}
   bool_t add(const DataHeader& data, timestamp_t timeOffset);
-  //bool_t update(const DataHeader& data);
+  bool_t update(const DataHeader& data);
   bool_t remove(uint64_t id);
   bool_t get(uint64_t id, Buffer& data, size_t dataOffset);
   bool_t getCompressedBlock(uint64_t id, uint64_t& blockId, Buffer& data, size_t dataOffset);
@@ -93,7 +93,9 @@ private:
   const Key* findBlockKeyByTime(uint64_t timestamp);
   bool_t getCompressedBlock(const Key* key, Buffer& data, size_t dataOffset);
 
-  bool_t removeEntity(uint64_t entity, Buffer& block);
+  bool_t removeEntity(uint64_t id, Buffer& block);
+  bool_t updateEntity(const DataHeader& data, Buffer& block);
+
   bool_t increaseKeyBlockSize(size_t freeSize);
   Key* findFirstCompressedBlock();
 
