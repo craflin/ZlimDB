@@ -298,25 +298,11 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
         Buffer compressedBuffer;
         compressBuffer(uncompressedBlock, compressedBuffer);
 
-        // write to end of file
-        if(!fileSeek(fileSize))
-          return false;
-        if(!fileWrite(compressedBuffer))
+        // move block to end of file
+        if(!moveCompressedBlockToEnd(compressedBuffer, *lastKey))
           return false;
 
-        // update key of uncompressed block
-        Key newKey = *lastKey;
-        newKey.position = fileSize;
-        newKey.size = compressedBuffer.size();
-        if(!fileSeek(fileHeader.keyPosition + ((const byte_t*)lastKey - (const byte_t*)keys)))
-          return false;
-        if(!fileWrite(&newKey, sizeof(newKey)))
-          return false;
-        lastKey->position = newKey.position;
-        lastKey->size = newKey.size;
-
-        // update file size, firstCompressedBlockIndex and uncompressedBlockIndex
-        fileSize += compressedBuffer.size();
+        // reset uncompressed block
         uncompressedBlock.clear();
       }
     }
@@ -333,7 +319,7 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
   return lastError = noError, true;
 }
 
-/*private*/ bool TableFile::addNewBlock(const DataHeader& data, timestamp_t timeOffset)
+/*private*/ bool_t TableFile::addNewBlock(const DataHeader& data, timestamp_t timeOffset)
 {
   ASSERT((fileHeader.keyCount + 1) * sizeof(Key) <= fileHeader.keySize);
 
@@ -404,6 +390,28 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
   return true;
 }
 
+/*private*/ bool_t TableFile::moveCompressedBlockToEnd(const Buffer& compressedBlock, Key& key)
+{
+  // write block to end of file
+  if(!fileSeek(fileSize))
+    return false;
+  if(!fileWrite(compressedBlock))
+    return false;
+
+  // update index of first compressed block
+  if(!fileSeek(fileHeader.keyPosition + ((const byte_t*)&key - (const byte_t*)keys)))
+    return false;
+  Key newKey = key;
+  newKey.position = fileSize;
+  newKey.size = compressedBlock.size();
+  if(!fileWrite(&newKey, sizeof(newKey)))
+    return false;
+  key.position = newKey.position;
+  key.size = newKey.size;
+  fileSize += key.size;
+  return true;
+}
+
 bool_t TableFile::remove(uint64_t id)
 {
   Key* key = findBlockKey(id);
@@ -439,25 +447,11 @@ bool_t TableFile::remove(uint64_t id)
     Buffer compressedBlock;
     compressBuffer(uncompressedBlock, compressedBlock);
 
-    // write compressed block to end of file
-    if(!fileSeek(fileSize))
-      return false;
-    if(!fileWrite(compressedBlock))
+    // move copy of uncomprossed block to end of file
+    if(!moveCompressedBlockToEnd(compressedBlock, *key))
       return false;
 
-    // update index of uncompressed block
-    Key newKey = *key;
-    newKey.position = fileSize;
-    newKey.size = compressedBlock.size();
-    uint64_t uncompressedKeyPosition = fileHeader.keyPosition + ((const byte_t*)key - (const byte_t*)keys);
-    if(!fileSeek(uncompressedKeyPosition))
-      return false;
-    if(!fileWrite(&newKey, sizeof(newKey)))
-      return false;
-    key->position = newKey.position;
-    key->size = newKey.size;
-
-    fileSize += compressedBlock.size();
+    // reset uncompressed block
     this->uncompressedBlock.clear();
 
     // rewrite uncompressed block
@@ -468,9 +462,10 @@ bool_t TableFile::remove(uint64_t id)
       return false;
 
     // update index of uncompressed block
+    Key newKey = *key;
     newKey.position = uncompressedBlockPosition;
     newKey.size = uncompressedBlock.size();
-    if(!fileSeek(uncompressedKeyPosition))
+    if(!fileSeek(fileHeader.keyPosition + ((const byte_t*)key - (const byte_t*)keys)))
       return false;
     if(!fileWrite(&newKey, sizeof(newKey)))
       return false;
@@ -558,24 +553,9 @@ bool_t TableFile::remove(uint64_t id)
     // compress block
     compressBuffer(block, compressedBlock);
 
-    // write compressed block to end of file
-    if(!fileSeek(fileSize))
+    // move compressed block to end of file
+    if(!moveCompressedBlockToEnd(compressedBlock, *key))
       return false;
-    if(!fileWrite(compressedBlock))
-      return false;
-
-    // update index of compressed block
-    Key newKey = *key;
-    newKey.position = fileSize;
-    newKey.size = compressedBlock.size();
-    uint64_t keyPosition = fileHeader.keyPosition + (const byte_t*)key - (const byte_t*)keys;
-    if(!fileSeek(keyPosition))
-      return false;
-    if(!fileWrite(&newKey, sizeof(newKey)))
-      return false;
-    key->position = newKey.position;
-    key->size = newKey.size;
-    fileSize += newKey.size;
   }
   return lastError = noError, true;
 }
@@ -594,25 +574,11 @@ bool_t TableFile::remove(uint64_t id)
     Buffer compressedBuffer;
     compressBuffer(uncompressedBlock, compressedBuffer);
 
-    // write to end of file
-    if(!fileSeek(fileSize))
-      return false;
-    if(!fileWrite(compressedBuffer))
+    // move block to end of file
+    if(!moveCompressedBlockToEnd(compressedBuffer, *lastKey))
       return false;
 
-    // update key of uncompressed block
-    Key newKey = *lastKey;
-    newKey.position = fileSize;
-    newKey.size = compressedBuffer.size();
-    if(!fileSeek(fileHeader.keyPosition + ((const byte_t*)lastKey - (const byte_t*)keys)))
-      return false;
-    if(!fileWrite(&newKey, sizeof(newKey)))
-      return false;
-    lastKey->position = newKey.position;
-    lastKey->size = newKey.size;
-
-    // update file size, firstCompressedBlockIndex and uncompressedBlockIndex
-    fileSize += compressedBuffer.size();
+    // reset uncompressed block
     uncompressedBlock.clear();
   }
 
@@ -621,28 +587,17 @@ bool_t TableFile::remove(uint64_t id)
 
   do
   {
-    // copy first compressed block to end of file
+    // read first compressed block
     Buffer compressedBuffer;
     compressedBuffer.resize(firstCompressedBlockKey->size);
     if(!fileSeek(firstCompressedBlockKey->position))
       return false;
     if(!fileRead(compressedBuffer))
       return false;
-    if(!fileSeek(fileSize))
-      return false;
-    if(!fileWrite(compressedBuffer))
-      return false;
 
-    // update index of first compressed block
-    uint64_t position = fileHeader.keyPosition + ((const byte_t*)firstCompressedBlockKey - (const byte_t*)keys);
-    if(!fileSeek(position))
+    // move compressed block to end of file
+    if(!moveCompressedBlockToEnd(compressedBuffer, *firstCompressedBlockKey))
       return false;
-    Key newKey = *firstCompressedBlockKey;
-    newKey.position = fileSize;
-    if(!fileWrite(&newKey, sizeof(newKey)))
-      return false;
-    firstCompressedBlockKey->position = newKey.position;
-    fileSize += firstCompressedBlockKey->size;
 
     // find new first compressed block
     firstCompressedBlockKey = findFirstCompressedBlock();
