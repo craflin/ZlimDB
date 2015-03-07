@@ -333,7 +333,7 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
     if(!fileWrite(compressedBlock))
       return false;
 
-    Key newKey = {data.id, data.timestamp, fileSize, compressedBlock.size()};
+    Key newKey = {data.id, data.timestamp, fileSize, (uint16_t)compressedBlock.size()};
     size_t keyPosition = fileHeader.keyCount * sizeof(Key);
     if(!fileSeek(fileHeader.keyPosition + keyPosition))
       return false;
