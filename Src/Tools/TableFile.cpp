@@ -22,7 +22,8 @@ bool_t TableFile::create(const String& fileName)
   fileHeader.keyPosition = sizeof(FileHeader);
   fileHeader.keyCount = 0;
   fileHeader.keySize = DEFAULT_KEY_SIZE;
-  *(FileHeader*)buffer = fileHeader;
+  FileHeader* fileHeaderBuf = (FileHeader*)buffer;
+  *fileHeaderBuf = fileHeader;
   Memory::zero(buffer + sizeof(FileHeader), DEFAULT_KEY_SIZE + DEFAULT_BLOCK_SIZE);
   if(!fileWrite(&buffer, sizeof(buffer)))
     return file2.close(), false;

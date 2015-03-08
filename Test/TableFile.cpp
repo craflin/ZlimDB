@@ -49,10 +49,6 @@ void_t testTableFile()
       {
         dataHeader->id = i;
         ++dataHeader->timestamp;
-        if(i == 100000 - 1)
-        {
-          int k = 42;
-        }
         ASSERT(file.add(*dataHeader, 0));
       }
     }
@@ -72,12 +68,12 @@ void_t testTableFile()
         ASSERT(file.getTimeOffset() == 0);
         size_t rawSize = *(uint16_t*)(const byte_t*)compressedBlock;
         int_t check = LZ4_decompress_safe((const char*)(const byte_t*)compressedBlock + sizeof(uint16_t), (char*)decompressedBuffer, compressedBlock.size() - sizeof(uint16_t), sizeof(decompressedBuffer));
-        ASSERT(check == rawSize);
+        ASSERT(check == (int_t)rawSize);
         TableFile::DataHeader* dataHeader = (TableFile::DataHeader*)decompressedBuffer;
         TableFile::DataHeader* dataHeaderEnd = (TableFile::DataHeader*)(decompressedBuffer + rawSize);
         for(; dataHeader < dataHeaderEnd; dataHeader = (TableFile::DataHeader*)((byte_t*)dataHeader + dataHeader->size))
         {
-          ASSERT(dataHeader->id == i);
+          ASSERT((int_t)dataHeader->id == i);
           ASSERT(dataHeader->timestamp > timestamp);
           timestamp = dataHeader->timestamp;
           ++i;
