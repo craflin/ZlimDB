@@ -195,7 +195,7 @@ bool_t TableFile::getCompressedBlockByTime(uint64_t timestamp, uint64_t& blockId
 {
   const Key* key = findBlockKeyByTime(timestamp);
   if(!key)
-    return false;
+    return getFirstCompressedBlock(blockId, data, dataOffset);
   if(!getCompressedBlock(key, data, dataOffset))
     return false;
   blockId = key->id;
