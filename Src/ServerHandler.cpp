@@ -42,7 +42,7 @@ bool_t ServerHandler::loadTables(const String& path)
   }
   if(tables.isEmpty()) // add default user
   {
-    String tableName("users/root/.user");
+    String tableName("users/root/user");
     ClientProtocol::User user;
     ClientProtocol::setEntityHeader(user.entity, 1, Time::time(), sizeof(user));
     for(uint16_t* i = (uint16_t*)user.pw_salt, * end = (uint16_t*)(user.pw_salt + sizeof(user.pw_salt)); i < end; ++i)

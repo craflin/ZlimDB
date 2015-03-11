@@ -121,7 +121,7 @@ void_t ClientHandler::handleLogin(const ClientProtocol::LoginRequest& login)
   String userName;
   if(!ClientProtocol::getString(login.header, sizeof(ClientProtocol::LoginRequest), login.user_name_size, userName))
     return sendErrorResponse(login.header.request_id, ClientProtocol::invalidMessageData);
-  Table* table = serverHandler.findTable(String("users/") + userName + "/.user");
+  Table* table = serverHandler.findTable(String("users/") + userName + "/user");
   if(!table)
     return sendErrorResponse(login.header.request_id, ClientProtocol::invalidLogin);
   serverHandler.createWorkerJob(*this, *table, &login, sizeof(login));
