@@ -7,12 +7,12 @@
 
 bool_t Table::open()
 {
-  if(!tableFile.open(name))
+  if(!tableFile->open(name))
     return false;
-  lastEntityId = tableFile.getLastId();
+  lastEntityId = tableFile->getLastId();
   if(lastEntityId != 0)
   {
-    minTimeOffset = tableFile.getTimeOffset();
+    minTimeOffset = tableFile->getTimeOffset();
     timeOffsets.append(minTimeOffset);
   }
   return true;
@@ -24,11 +24,11 @@ bool_t Table::create(const ClientProtocol::Entity* entity)
   if(dir != ".")
     Directory::create(dir);
 
-  if(!tableFile.create(name))
+  if(!tableFile->create(name))
     return false;
-  if(entity && !tableFile.add(*(const TableFile::DataHeader*)entity, 0))
+  if(entity && !tableFile->add(*(const TableFile::DataHeader*)entity, 0))
   {
-    tableFile.close();
+    tableFile->close();
     return false;
   }
   return true;

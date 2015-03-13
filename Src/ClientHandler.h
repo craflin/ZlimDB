@@ -62,6 +62,8 @@ private:
   void_t handleQuery(const ClientProtocol::QueryRequest& query);
   void_t handleSync(const ClientProtocol::SyncRequest& sync);
 
+  void_t handleMetaQuery(const ClientProtocol::QueryRequest& query, ClientProtocol::MessageType responseType);
+
   void_t handleInternalLoginResponse(const WorkerProtocol::LoginResponse& loginResponse);
   void_t handleInternalSubscribeResponse(WorkerJob& workerJob, ClientProtocol::Header& subscribeResponse);
   void_t handleInternalErrorResponse(WorkerJob& workerJob, const ClientProtocol::ErrorResponse& errorResponse);

@@ -29,18 +29,12 @@ ServerHandler::~ServerHandler()
 
 bool_t ServerHandler::loadTables(const String& path)
 {
-  Directory dir;
-  if(!dir.open(path, String(), false))
+  tables.append(ClientProtocol::tablesTable, new Table(ClientProtocol::tablesTable, 0, String()));
+
+  if(!loadDirectory(path))
     return false;
-  String fileName;
-  bool isDir;
-  while(dir.read(fileName, isDir))
-  {
-    String filePath = path.isEmpty() ? fileName : path + "/" + fileName;
-    if((isDir && !loadTables(filePath)) || (!isDir && !loadTable(filePath)))
-        return false;
-  }
-  if(tables.isEmpty()) // add default user
+
+  if(tables.size() == 1) // add default user
   {
     String tableName("users/root/user");
     ClientProtocol::User user;
@@ -54,6 +48,24 @@ bool_t ServerHandler::loadTables(const String& path)
       removeTable(table);
       return false;
     }
+  }
+  return true;
+}
+
+bool_t ServerHandler::loadDirectory(const String& path)
+{
+  Directory dir;
+  if(!dir.open(path, String(), false))
+    return false;
+  String fileName;
+  bool isDir;
+  while(dir.read(fileName, isDir))
+  {
+    if(fileName.startsWith("."))
+      continue;
+    String filePath = path.isEmpty() ? fileName : path + "/" + fileName;
+    if((isDir && !loadDirectory(filePath)) || (!isDir && !loadTable(filePath)))
+        return false;
   }
   return true;
 }
@@ -192,7 +204,7 @@ void_t ServerHandler::closedClient(Server::Client& client)
 
 WorkerJob& ServerHandler::createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size)
 {
-  WorkerJob* workerJob = new WorkerJob(clientHandler, table, table.getTableFile(), data, size);
+  WorkerJob* workerJob = new WorkerJob(clientHandler, table, *table.getTableFile(), data, size);
   WorkerHandler* workerHandler = table.getWorkerHandler();
   if(!workerHandler)
   {

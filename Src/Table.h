@@ -16,7 +16,8 @@ class Subscription;
 class Table
 {
 public:
-  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(id), lastEntityId(0), minTimeOffset(0x7fffffffffffffffLL) {}
+  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id)), lastEntityId(0), minTimeOffset(0x7fffffffffffffffLL) {}
+  ~Table() {delete tableFile;}
 
   uint32_t getId() const {return id;}
   const String& getName() const {return name;}
@@ -25,7 +26,8 @@ public:
 
   bool_t open();
   bool_t create(const ClientProtocol::Entity* entity);
-  TableFile& getTableFile() {return tableFile;}
+  TableFile* getTableFile() {return tableFile;}
+  const TableFile* getTableFile() const {return tableFile;}
 
   uint64_t getLastEntityId() const {return lastEntityId;}
   void_t setLastEntityId(uint64_t entityId) {lastEntityId = entityId;}
@@ -53,7 +55,7 @@ private:
   String name;
   HashSet<WorkerJob*> openWorkerJobs;
   WorkerHandler* workerHandler;
-  TableFile tableFile;
+  TableFile* tableFile;
   uint64_t lastEntityId;
   HashSet<Subscription*> subscriptions;
   List<timestamp_t> timeOffsets;

@@ -174,6 +174,16 @@ void_t ClientHandler::handleAdd(ClientProtocol::AddRequest& add)
 
       // create internal job to create the file
       serverHandler.createWorkerJob(*this, *table, &add, add.header.size);
+
+      // notify subscribers
+      table = serverHandler.findTable(ClientProtocol::tablesTable);
+      HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+      {
+        Subscription* subscription = *i;
+        if(subscription->isSynced())
+          subscription->getClientHandler()->client.send((const byte_t*)&add, add.header.size);
+      }
     }
     break;
   default:
@@ -277,10 +287,19 @@ void_t ClientHandler::handleSubscribe(const ClientProtocol::SubscribeRequest& su
   if(subscriptions.contains(table))
     return sendOkResponse(ClientProtocol::subscribeResponse, subscribe.header.request_id);
   Subscription& subscription = serverHandler.createSubscription(*this, *table);
-  if(table->getLastEntityId() == 0)
-    subscription.setSynced();
+  if(table->getTableFile())
+  {
+    if(table->getLastEntityId() == 0)
+      subscription.setSynced();
+      // todo: send an answer
+    else
+      serverHandler.createWorkerJob(*this, *table, &subscribe, sizeof(subscribe));
+  }
   else
-    serverHandler.createWorkerJob(*this, *table, &subscribe, sizeof(subscribe));
+  {
+    handleMetaQuery(subscribe, ClientProtocol::subscribeResponse);
+    subscription.setSynced();
+  }
 }
 
 void_t ClientHandler::handleUnsubscribe(const ClientProtocol::UnsubscribeRequest& unsubscribe)
@@ -296,76 +315,13 @@ void_t ClientHandler::handleUnsubscribe(const ClientProtocol::UnsubscribeRequest
 
 void_t ClientHandler::handleQuery(const ClientProtocol::QueryRequest& query)
 {
-  switch((ClientProtocol::TableId)query.table_id)
-  {
-  case ClientProtocol::clientsTable:
-    return sendErrorResponse(query.header.request_id, ClientProtocol::notImplemented);
-  case ClientProtocol::tablesTable:
-    switch(query.type)
-    {
-    case ClientProtocol::QueryType::all:
-      {
-        const HashMap<uint32_t, Table*>& tables = serverHandler.getTables();
-        buffer.resize(4096);
-        ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)buffer;
-        response->message_type = ClientProtocol::queryResponse;
-        response->request_id = query.header.request_id;
-        byte_t* start;
-        byte_t* pos = start = (byte_t*)response + sizeof(ClientProtocol::Header);
-        for(HashMap<uint32_t, Table*>::Iterator i = tables.begin(), end = tables.end(); i != end; ++i)
-        {
-          const Table* table = *i;
-          uint32_t entitySize = table->getEntitySize();
-          uint32_t reqBufferSize = pos + entitySize - start;
-          if(reqBufferSize > buffer.size())
-          {
-            response->size = pos - start;
-            response->flags = ClientProtocol::HeaderFlag::fragmented;
-            client.send(buffer, response->size);
-            pos = start;
-          }
-          table->getEntity(*(ClientProtocol::Table*)pos);
-          pos += entitySize;
-        }
-        response->size = pos - start + sizeof(ClientProtocol::Header);
-        response->flags = 0;
-        client.send(buffer, response->size);
-      }
-      break;
-    case ClientProtocol::QueryType::byId:
-      {
-        const Table* table = serverHandler.findTable((uint32_t)query.param);
-        if(!table)
-          return sendErrorResponse(query.header.request_id, ClientProtocol::entityNotFound);
-        buffer.resize(sizeof(ClientProtocol::Header) + table->getEntitySize());
-        ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)buffer;
-        ClientProtocol::Table* tableBuf = (ClientProtocol::Table*)((byte_t*)response + sizeof(ClientProtocol::Header));
-        response->size = sizeof(buffer);
-        response->flags = 0;
-        response->message_type = ClientProtocol::queryResponse;
-        response->request_id = query.header.request_id;
-        table->getEntity(*tableBuf);
-        client.send(buffer, sizeof(buffer));
-      }
-      break;
-    case ClientProtocol::QueryType::sinceTime:
-      return sendErrorResponse(query.header.request_id, ClientProtocol::notImplemented);
-    case ClientProtocol::QueryType::sinceId:
-      return sendErrorResponse(query.header.request_id, ClientProtocol::notImplemented);
-    default:
-      return sendErrorResponse(query.header.request_id, ClientProtocol::invalidRequest);
-    }
-    break;
-  default:
-    {
-      Table* table = serverHandler.findTable(query.table_id);
-      if(!table)
-        return sendErrorResponse(query.header.request_id, ClientProtocol::tableNotFound);
-
-      serverHandler.createWorkerJob(*this, *table, &query, sizeof(query));
-    }
-    break;
-  }
+  Table* table = serverHandler.findTable(query.table_id);
+  if(!table)
+    return sendErrorResponse(query.header.request_id, ClientProtocol::tableNotFound);
+  if(table->getTableFile())
+    serverHandler.createWorkerJob(*this, *table, &query, sizeof(query));
+  else
+    handleMetaQuery(query, ClientProtocol::queryResponse);
 }
 
 void_t ClientHandler::handleSync(const ClientProtocol::SyncRequest& sync)
@@ -395,7 +351,73 @@ void_t ClientHandler::handleSync(const ClientProtocol::SyncRequest& sync)
       return sendResponse(syncResponse.header);
     }
   }
+}
 
+void_t ClientHandler::handleMetaQuery(const ClientProtocol::QueryRequest& query, ClientProtocol::MessageType responseType)
+{
+  switch(query.table_id)
+  {
+  case ClientProtocol::tablesTable:
+    switch(query.type)
+    {
+    case ClientProtocol::QueryType::all:
+      {
+        const HashMap<uint32_t, Table*>& tables = serverHandler.getTables();
+        buffer.resize(4096);
+        ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)buffer;
+        response->message_type = responseType;
+        response->request_id = query.header.request_id;
+        byte_t* start;
+        byte_t* pos = start = (byte_t*)response + sizeof(ClientProtocol::Header);
+        for(HashMap<uint32_t, Table*>::Iterator i = tables.begin(), end = tables.end(); i != end; ++i)
+        {
+          const Table* table = *i;
+          if(!table->getTableFile())
+            continue;
+          uint32_t entitySize = table->getEntitySize();
+          uint32_t reqBufferSize = pos + entitySize - start;
+          if(reqBufferSize > buffer.size())
+          {
+            response->size = pos - start;
+            response->flags = ClientProtocol::HeaderFlag::fragmented;
+            client.send(buffer, response->size);
+            pos = start;
+          }
+          table->getEntity(*(ClientProtocol::Table*)pos);
+          pos += entitySize;
+        }
+        response->size = pos - start + sizeof(ClientProtocol::Header);
+        response->flags = 0;
+        client.send(buffer, response->size);
+      }
+      break;
+    case ClientProtocol::QueryType::byId:
+      {
+        const Table* table = serverHandler.findTable((uint32_t)query.param);
+        if(!table)
+          return sendErrorResponse(query.header.request_id, ClientProtocol::entityNotFound);
+        buffer.resize(sizeof(ClientProtocol::Header) + table->getEntitySize());
+        ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)buffer;
+        ClientProtocol::Table* tableBuf = (ClientProtocol::Table*)((byte_t*)response + sizeof(ClientProtocol::Header));
+        response->size = sizeof(buffer);
+        response->flags = 0;
+        response->message_type = responseType;
+        response->request_id = query.header.request_id;
+        table->getEntity(*tableBuf);
+        client.send(buffer, sizeof(buffer));
+      }
+      break;
+    case ClientProtocol::QueryType::sinceTime:
+      return sendErrorResponse(query.header.request_id, ClientProtocol::notImplemented);
+    case ClientProtocol::QueryType::sinceId:
+      return sendErrorResponse(query.header.request_id, ClientProtocol::notImplemented);
+    default:
+      return sendErrorResponse(query.header.request_id, ClientProtocol::invalidRequest);
+    }
+    break;
+  default:
+    return sendErrorResponse(query.header.request_id, ClientProtocol::notImplemented);
+  }
 }
 
 void_t ClientHandler::sendErrorResponse(uint32_t requestId, ClientProtocol::Error error)
@@ -522,6 +544,22 @@ void_t ClientHandler::handleInternalErrorResponse(WorkerJob& workerJob, const Cl
     {
       Table& table = workerJob.getTable();
       table.invalidate();
+
+      // notify subcribers
+      {
+        ClientProtocol::RemoveRequest removeRequest;
+        ClientProtocol::setHeader(removeRequest.header, ClientProtocol::removeRequest, sizeof(removeRequest), 0);
+        removeRequest.table_id = ClientProtocol::tablesTable;
+        removeRequest.id = table.getId();
+        Table* table = serverHandler.findTable(ClientProtocol::tablesTable);
+        HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+        for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+        {
+          Subscription* subscription = *i;
+          if(subscription->isSynced())
+            subscription->getClientHandler()->client.send((const byte_t*)&removeRequest, removeRequest.header.size);
+        }
+      }
     }
   }
   client.send((const byte_t*)&errorResponse, errorResponse.header.size);

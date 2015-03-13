@@ -22,7 +22,6 @@ public:
   ~ServerHandler();
 
   bool_t loadTables(const String& path = String());
-  bool_t loadTable(const String& path);
 
   bool_t createWorkerThread();
 
@@ -39,10 +38,6 @@ public:
   void_t removeSubscription(Subscription& subscription);
 
 private:
-  void_t decreaseWorkerHandlerRank(WorkerHandler& workerHandler);
-  void_t increaseWorkerHandlerRank(WorkerHandler& workerHandler);
-
-private:
   Server& server;
   uint32_t nextTableId;
   HashMap<uint32_t, Table*> tables;
@@ -50,6 +45,13 @@ private:
   HashSet<ClientHandler*> clientHandlers;
   HashMap<WorkerHandler*, WorkerThread*> workerThreads;
   HashSet<WorkerHandler*> workerHandlers;
+
+private:
+  void_t decreaseWorkerHandlerRank(WorkerHandler& workerHandler);
+  void_t increaseWorkerHandlerRank(WorkerHandler& workerHandler);
+
+  bool_t loadDirectory(const String& path);
+  bool_t loadTable(const String& path);
 
 private: // Server::Listener
   virtual void_t acceptedClient(Server::Client& client, uint16_t localPort);
