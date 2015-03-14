@@ -6,8 +6,7 @@
 #include <nstd/Buffer.h>
 
 #include "Tools/Server.h"
-
-#include "ClientProtocol.h"
+#include "Tools/ClientProtocol.h"
 
 class ServerHandler;
 class WorkerJob;

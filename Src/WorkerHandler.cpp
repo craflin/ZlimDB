@@ -2,10 +2,10 @@
 #include <nstd/Time.h>
 #include <nstd/Math.h>
 
+#include "Tools/ClientProtocol.h"
 #include "WorkerHandler.h"
 #include "ServerHandler.h"
 #include "ClientHandler.h"
-#include "ClientProtocol.h"
 #include "Table.h"
 
 WorkerHandler::~WorkerHandler()

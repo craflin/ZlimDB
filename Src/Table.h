@@ -6,8 +6,7 @@
 #include <nstd/HashSet.h>
 
 #include "Tools/TableFile.h"
-
-#include "ClientProtocol.h"
+#include "Tools/ClientProtocol.h"
 
 class WorkerJob;
 class WorkerHandler;
