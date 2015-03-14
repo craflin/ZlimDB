@@ -4,13 +4,19 @@
 #include <nstd/Thread.h>
 
 #include "Tools/Socket.h"
-#include "WorkerProtocol.h"
+#include "ClientProtocol.h"
 
 class WorkerJob;
 class TableFile;
 
 class WorkerThread
 {
+public:
+  struct LoginResponse : public ClientProtocol::LoginResponse
+  {
+    byte_t signature[32];
+  };
+
 public:
   WorkerThread(Socket& socket);
 

@@ -8,7 +8,6 @@
 #include "Tools/Server.h"
 
 #include "ClientProtocol.h"
-#include "WorkerProtocol.h"
 
 class ServerHandler;
 class WorkerJob;
@@ -64,7 +63,7 @@ private:
 
   void_t handleMetaQuery(const ClientProtocol::QueryRequest& query, ClientProtocol::MessageType responseType);
 
-  void_t handleInternalLoginResponse(const WorkerProtocol::LoginResponse& loginResponse);
+  void_t handleInternalLoginResponse(const ClientProtocol::LoginResponse& loginResponse);
   void_t handleInternalSubscribeResponse(WorkerJob& workerJob, ClientProtocol::Header& subscribeResponse);
   void_t handleInternalErrorResponse(WorkerJob& workerJob, const ClientProtocol::ErrorResponse& errorResponse);
 
