@@ -48,7 +48,7 @@ void_t WorkerHandler::handleWorkerJob(WorkerJob& workerJob)
   if(clientHandler)
   {
     clientHandler->handleWorkerJob(workerJob);
-    bool finished = (((const ClientProtocol::Header*)(const byte_t*)workerJob.getResponseData())->flags & ClientProtocol::HeaderFlag::fragmented) == 0;
+    bool finished = (((const zlimdb_header*)(const byte_t*)workerJob.getResponseData())->flags & zlimdb_header_flag_fragmented) == 0;
     if(finished)
       serverHandler.removeWorkerJob(workerJob);
     else if(!clientHandler->isSuspended())

@@ -25,7 +25,7 @@ public:
   void_t invalidate() {valid = false;}
 
   bool_t open();
-  bool_t create(const ClientProtocol::Entity* entity);
+  bool_t create(const zlimdb_entity* entity);
   TableFile* getTableFile() {return tableFile;}
   const TableFile* getTableFile() const {return tableFile;}
 
@@ -33,7 +33,7 @@ public:
   void_t setLastEntityId(uint64_t entityId) {lastEntityId = entityId;}
 
   uint32_t getEntitySize() const;
-  void_t getEntity(ClientProtocol::Table& entity) const;
+  void_t getEntity(zlimdb_table_entity& entity) const;
 
   size_t getLoad() const {return openWorkerJobs.size();}
   WorkerHandler* getWorkerHandler() {return workerHandler;}

@@ -29,7 +29,7 @@ ServerHandler::~ServerHandler()
 
 bool_t ServerHandler::loadTables(const String& path)
 {
-  tables.append(ClientProtocol::tablesTable, new Table(ClientProtocol::tablesTable, 0, String()));
+  tables.append(zlimdb_table_tables, new Table(zlimdb_table_tables, 0, String()));
 
   if(!loadDirectory(path))
     return false;
@@ -37,7 +37,7 @@ bool_t ServerHandler::loadTables(const String& path)
   if(tables.size() == 1) // add default user
   {
     String tableName("users/root/user");
-    ClientProtocol::User user;
+    zlimdb_user_entity user;
     ClientProtocol::setEntityHeader(user.entity, 1, Time::time(), sizeof(user));
     for(uint16_t* i = (uint16_t*)user.pw_salt, * end = (uint16_t*)(user.pw_salt + sizeof(user.pw_salt)); i < end; ++i)
       *i = Math::random();

@@ -18,7 +18,7 @@ bool_t Table::open()
   return true;
 }
 
-bool_t Table::create(const ClientProtocol::Entity* entity)
+bool_t Table::create(const zlimdb_entity* entity)
 {
   String dir = File::dirname(name);
   if(dir != ".")
@@ -36,12 +36,12 @@ bool_t Table::create(const ClientProtocol::Entity* entity)
 
 uint32_t Table::getEntitySize() const
 {
-  return sizeof(ClientProtocol::Table) + name.length();
+  return sizeof(zlimdb_table_entity) + name.length();
 }
 
-void_t Table::getEntity(ClientProtocol::Table& entity) const
+void_t Table::getEntity(zlimdb_table_entity& entity) const
 {
-  entity.entity.size = sizeof(ClientProtocol::Table) + name.length();
+  entity.entity.size = sizeof(zlimdb_table_entity) + name.length();
   entity.entity.id = id;
   entity.entity.time = time;
   entity.flags = 0;

@@ -50,24 +50,24 @@ private: // Server::Client::Listener
   virtual void_t write() {resume();}
 
 private: 
-  void_t handleMessage(ClientProtocol::Header& header);
-  void_t handleLogin(const ClientProtocol::LoginRequest& login);
-  void_t handleAuth(const ClientProtocol::AuthRequest& auth);
-  void_t handleAdd(ClientProtocol::AddRequest& add);
-  void_t handleUpdate(const ClientProtocol::UpdateRequest& update);
-  void_t handleRemove(const ClientProtocol::RemoveRequest& remove);
-  void_t handleSubscribe(const ClientProtocol::SubscribeRequest& subscribe);
-  void_t handleUnsubscribe(const ClientProtocol::UnsubscribeRequest& unsubscribe);
-  void_t handleQuery(const ClientProtocol::QueryRequest& query);
-  void_t handleSync(const ClientProtocol::SyncRequest& sync);
+  void_t handleMessage(const zlimdb_header& header);
+  void_t handleLogin(const zlimdb_login_request& login);
+  void_t handleAuth(const zlimdb_auth_request& auth);
+  void_t handleAdd(const zlimdb_add_request& add);
+  void_t handleUpdate(const zlimdb_update_request& update);
+  void_t handleRemove(const zlimdb_remove_request& remove);
+  void_t handleSubscribe(const zlimdb_subscribe_request& subscribe);
+  void_t handleUnsubscribe(const zlimdb_unsubscribe_request& unsubscribe);
+  void_t handleQuery(const zlimdb_query_request& query);
+  void_t handleSync(const zlimdb_sync_request& sync);
 
-  void_t handleMetaQuery(const ClientProtocol::QueryRequest& query, ClientProtocol::MessageType responseType);
+  void_t handleMetaQuery(const zlimdb_query_request& query, zlimdb_message_type responseType);
 
-  void_t handleInternalLoginResponse(const ClientProtocol::LoginResponse& loginResponse);
-  void_t handleInternalSubscribeResponse(WorkerJob& workerJob, ClientProtocol::Header& subscribeResponse);
-  void_t handleInternalErrorResponse(WorkerJob& workerJob, const ClientProtocol::ErrorResponse& errorResponse);
+  void_t handleInternalLoginResponse(const zlimdb_login_response& loginResponse);
+  void_t handleInternalSubscribeResponse(WorkerJob& workerJob, zlimdb_header& subscribeResponse);
+  void_t handleInternalErrorResponse(WorkerJob& workerJob, const zlimdb_error_response& errorResponse);
 
-  void_t sendErrorResponse(uint32_t requestId, ClientProtocol::Error error);
-  void_t sendOkResponse(ClientProtocol::MessageType type,uint32_t requestId);
-  void_t sendResponse(ClientProtocol::Header& header);
+  void_t sendErrorResponse(uint32_t requestId, zlimdb_message_error error);
+  void_t sendOkResponse(zlimdb_message_type type,uint32_t requestId);
+  void_t sendResponse(zlimdb_header& header);
 };
