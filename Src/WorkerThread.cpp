@@ -98,10 +98,7 @@ void_t WorkerThread::handleLogin(const ClientProtocol::Header& header)
   Buffer& responseBuffer = currentWorkerJob->getResponseData();
   responseBuffer.resize(sizeof(WorkerProtocol::LoginResponse));
   WorkerProtocol::LoginResponse* response = (WorkerProtocol::LoginResponse*)(byte_t*)responseBuffer;
-  response->header.flags = 0;
-  response->header.size = sizeof(*response);
-  response->header.message_type = ClientProtocol::loginResponse;
-  response->header.request_id = header.request_id;
+  ClientProtocol::setHeader(response->header, ClientProtocol::loginResponse, sizeof(*response), header.request_id);
   Memory::copy(&response->pw_salt, &user->pw_salt, sizeof(user->pw_salt));
   for(uint16_t* i = (uint16_t*)response->auth_salt, * end = (uint16_t*)(response->auth_salt + sizeof(response->auth_salt)); i < end; ++i)
       *i = Math::random();

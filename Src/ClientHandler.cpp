@@ -132,16 +132,9 @@ void_t ClientHandler::handleAuth(const ClientProtocol::AuthRequest& auth)
   bool_t failed = Memory::compare(&auth.signature, &signature, sizeof(signature)) != 0;
   Memory::zero(&signature, sizeof(signature));
   if(failed)
-  {
-    sendErrorResponse(auth.header.request_id, ClientProtocol::invalidLogin);
-    return;
-  }
+    return sendErrorResponse(auth.header.request_id, ClientProtocol::invalidLogin);
 
-  ClientProtocol::Header authResponse;
-  authResponse.size = sizeof(authResponse);
-  authResponse.message_type = ClientProtocol::authResponse;
-  authResponse.request_id = auth.header.request_id;
-  sendResponse(authResponse);
+  sendOkResponse(ClientProtocol::authResponse, auth.header.request_id);
 }
 
 void_t ClientHandler::handleAdd(ClientProtocol::AddRequest& add)
@@ -292,9 +285,7 @@ void_t ClientHandler::handleSubscribe(const ClientProtocol::SubscribeRequest& su
     if(table->getLastEntityId() == 0)
     {
       subscription.setSynced();
-      ClientProtocol::Header subscribeResponse;
-      ClientProtocol::setHeader(subscribeResponse, ClientProtocol::subscribeResponse, sizeof(subscribeResponse), subscribe.header.request_id);
-      sendResponse(subscribeResponse);
+      return sendOkResponse(ClientProtocol::subscribeResponse, subscribe.header.request_id);
     }
     else
       serverHandler.createWorkerJob(*this, *table, &subscribe, sizeof(subscribe));
@@ -403,10 +394,7 @@ void_t ClientHandler::handleMetaQuery(const ClientProtocol::QueryRequest& query,
         buffer.resize(sizeof(ClientProtocol::Header) + table->getEntitySize());
         ClientProtocol::Header* response = (ClientProtocol::Header*)(byte_t*)buffer;
         ClientProtocol::Table* tableBuf = (ClientProtocol::Table*)((byte_t*)response + sizeof(ClientProtocol::Header));
-        response->size = sizeof(buffer);
-        response->flags = 0;
-        response->message_type = responseType;
-        response->request_id = query.header.request_id;
+        ClientProtocol::setHeader(*response, responseType, buffer.size(), query.header.request_id);
         table->getEntity(*tableBuf);
         client.send(buffer, sizeof(buffer));
       }
@@ -427,10 +415,7 @@ void_t ClientHandler::handleMetaQuery(const ClientProtocol::QueryRequest& query,
 void_t ClientHandler::sendErrorResponse(uint32_t requestId, ClientProtocol::Error error)
 {
   ClientProtocol::ErrorResponse response;
-  response.header.size = sizeof(response);
-  response.header.message_type = ClientProtocol::errorResponse;
-  response.header.request_id = requestId;
-  response.header.flags = 0;
+  ClientProtocol::setHeader(response.header, ClientProtocol::errorResponse, sizeof(response), requestId);
   response.error = error;
   client.send((const byte_t*)&response, sizeof(response));
 }
@@ -438,16 +423,12 @@ void_t ClientHandler::sendErrorResponse(uint32_t requestId, ClientProtocol::Erro
 void_t ClientHandler::sendOkResponse(ClientProtocol::MessageType type, uint32_t requestId)
 {
   ClientProtocol::Header response;
-  response.size = sizeof(response);
-  response.message_type = type;
-  response.request_id = requestId;
-  response.flags = 0;
+  ClientProtocol::setHeader(response, type, sizeof(response), requestId);
   sendResponse(response);
 }
 
 void_t ClientHandler::sendResponse(ClientProtocol::Header& header)
 {
-  header.flags = 0;
   client.send((const byte_t*)&header, header.size);
 }
 
@@ -505,10 +486,7 @@ void_t ClientHandler::handleInternalLoginResponse(const WorkerProtocol::LoginRes
   Memory::copy(&signature, &loginResponse.signature, sizeof(signature));
 
   ClientProtocol::LoginResponse response;
-  response.header.flags = 0;
-  response.header.size = sizeof(response);
-  response.header.message_type = ClientProtocol::loginResponse;
-  response.header.request_id = loginResponse.header.request_id;
+  ClientProtocol::setHeader(response.header, ClientProtocol::loginResponse, sizeof(response), loginResponse.header.request_id);
   Memory::copy(&response.pw_salt, &loginResponse.pw_salt, sizeof(response.pw_salt));
   Memory::copy(&response.auth_salt, &loginResponse.auth_salt, sizeof(response.auth_salt));
   client.send((const byte_t*)&response, sizeof(response));
