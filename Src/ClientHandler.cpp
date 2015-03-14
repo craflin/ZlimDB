@@ -290,8 +290,12 @@ void_t ClientHandler::handleSubscribe(const ClientProtocol::SubscribeRequest& su
   if(table->getTableFile())
   {
     if(table->getLastEntityId() == 0)
+    {
       subscription.setSynced();
-      // todo: send an answer
+      ClientProtocol::Header subscribeResponse;
+      ClientProtocol::setHeader(subscribeResponse, ClientProtocol::subscribeResponse, sizeof(subscribeResponse), subscribe.header.request_id);
+      sendResponse(subscribeResponse);
+    }
     else
       serverHandler.createWorkerJob(*this, *table, &subscribe, sizeof(subscribe));
   }
