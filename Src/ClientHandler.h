@@ -49,12 +49,12 @@ private: // Server::Client::Listener
   virtual void_t write() {resume();}
 
 private: 
-  void_t handleMessage(const zlimdb_header& header);
+  void_t handleMessage(zlimdb_header& header);
   void_t handleLogin(const zlimdb_login_request& login);
   void_t handleAuth(const zlimdb_auth_request& auth);
-  void_t handleAdd(const zlimdb_add_request& add);
-  void_t handleUpdate(const zlimdb_update_request& update);
-  void_t handleRemove(const zlimdb_remove_request& remove);
+  void_t handleAdd(zlimdb_add_request& add);
+  void_t handleUpdate(zlimdb_update_request& update);
+  void_t handleRemove(zlimdb_remove_request& remove);
   void_t handleSubscribe(const zlimdb_subscribe_request& subscribe);
   void_t handleUnsubscribe(const zlimdb_unsubscribe_request& unsubscribe);
   void_t handleQuery(const zlimdb_query_request& query);

@@ -52,7 +52,7 @@ size_t ClientHandler::handle(byte_t* data, size_t size)
   return pos - data;
 }
 
-void_t ClientHandler::handleMessage(const zlimdb_header& header)
+void_t ClientHandler::handleMessage(zlimdb_header& header)
 {
   switch(header.message_type)
   {
@@ -70,19 +70,19 @@ void_t ClientHandler::handleMessage(const zlimdb_header& header)
     break;
   case zlimdb_message_add_request:
     if(header.size >= sizeof(zlimdb_add_request))
-      handleAdd((const zlimdb_add_request&)header);
+      handleAdd((zlimdb_add_request&)header);
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
     break;
   case zlimdb_message_update_request:
     if(header.size >= sizeof(zlimdb_update_request))
-      handleUpdate((const zlimdb_update_request&)header);
+      handleUpdate((zlimdb_update_request&)header);
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
     break;
   case zlimdb_message_remove_request:
     if(header.size >= sizeof(zlimdb_remove_request))
-      handleRemove((const zlimdb_remove_request&)header);
+      handleRemove((zlimdb_remove_request&)header);
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
     break;
@@ -137,7 +137,7 @@ void_t ClientHandler::handleAuth(const zlimdb_auth_request& auth)
   sendOkResponse(zlimdb_message_auth_response, auth.header.request_id);
 }
 
-void_t ClientHandler::handleAdd(const zlimdb_add_request& add)
+void_t ClientHandler::handleAdd(zlimdb_add_request& add)
 {
   switch(add.table_id)
   {
@@ -171,6 +171,7 @@ void_t ClientHandler::handleAdd(const zlimdb_add_request& add)
       // notify subscribers
       table = serverHandler.findTable(zlimdb_table_tables);
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      add.header.request_id = 0;
       for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
       {
         Subscription* subscription = *i;
@@ -206,6 +207,7 @@ void_t ClientHandler::handleAdd(const zlimdb_add_request& add)
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      add.header.request_id = 0;
       for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
       {
         Subscription* subscription = *i;
@@ -217,7 +219,7 @@ void_t ClientHandler::handleAdd(const zlimdb_add_request& add)
   }
 }
 
-void_t ClientHandler::handleUpdate(const zlimdb_update_request& update)
+void_t ClientHandler::handleUpdate(zlimdb_update_request& update)
 {
   switch(update.table_id)
   {
@@ -234,6 +236,7 @@ void_t ClientHandler::handleUpdate(const zlimdb_update_request& update)
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      update.header.request_id = 0;
       for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
       {
         Subscription* subscription = *i;
@@ -244,14 +247,34 @@ void_t ClientHandler::handleUpdate(const zlimdb_update_request& update)
   }
 }
 
-void_t ClientHandler::handleRemove(const zlimdb_remove_request& remove)
+void_t ClientHandler::handleRemove(zlimdb_remove_request& remove)
 {
   switch(remove.table_id)
   {
   case zlimdb_table_clients:
     return sendErrorResponse(remove.header.request_id, zlimdb_error_invalid_request);
   case zlimdb_table_tables:
-    return sendErrorResponse(remove.header.request_id, zlimdb_error_not_implemented);
+    {
+      Table* table = serverHandler.findTable((uint32_t)remove.id);
+      if(!table)
+        return sendErrorResponse(remove.header.request_id, zlimdb_error_entity_not_found);
+
+      // create internal job to delete the file
+      table->invalidate();
+      serverHandler.createWorkerJob(*this, *table, &remove, remove.header.size);
+
+      // notify subscribers
+      table = serverHandler.findTable(zlimdb_table_tables);
+      HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      remove.header.request_id = 0;
+      for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+      {
+        Subscription* subscription = *i;
+        if(subscription->isSynced())
+          subscription->getClientHandler()->client.send((const byte_t*)&remove, remove.header.size);
+      }
+    }
+    break;
   default:
     {
       Table* table = serverHandler.findTable(remove.table_id);
@@ -262,6 +285,7 @@ void_t ClientHandler::handleRemove(const zlimdb_remove_request& remove)
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      remove.header.request_id = 0;
       for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
       {
         Subscription* subscription = *i;

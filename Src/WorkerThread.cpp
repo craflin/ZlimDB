@@ -112,16 +112,12 @@ void_t WorkerThread::handleAdd(const zlimdb_add_request& add)
   {
   case zlimdb_table_tables:
     {
-      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&add + 1);
-      String tableName;
-      if(!ClientProtocol::getString(add.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
-        return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
-
+      const String& tableName = tableFile.getFileName();
       String dir = File::dirname(tableName);
       if(dir != ".")
         Directory::create(dir);
 
-      if(!tableFile.create(tableName))
+      if(!tableFile.create())
         return sendErrorResponse(add.header.request_id, zlimdb_error_open_file);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
@@ -184,7 +180,14 @@ void_t WorkerThread::handleRemove(const zlimdb_remove_request& remove)
   {
   case zlimdb_table_tables:
     {
-      // todo
+      tableFile.close();
+      if(!File::unlink(tableFile.getFileName()))
+        return sendErrorResponse(remove.header.request_id, zlimdb_error_write_file);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(zlimdb_header));
+      zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(*response, zlimdb_message_remove_response, sizeof(*response), remove.header.request_id);
       break;
     }
   default:

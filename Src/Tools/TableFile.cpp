@@ -9,7 +9,7 @@
 #define DEFAULT_BLOCK_SIZE 4096
 #define DEFAULT_KEY_SIZE (DEFAULT_BLOCK_SIZE / sizeof(Key) * sizeof(Key))
 
-bool_t TableFile::create(const String& fileName)
+bool_t TableFile::create()
 {
   if(!file2.open(fileName, File::readFlag | File::writeFlag))
     return lastError = fileError, false;
@@ -36,7 +36,7 @@ bool_t TableFile::create(const String& fileName)
   return lastError = noError, true;
 }
 
-bool_t TableFile::open(const String& fileName)
+bool_t TableFile::open()
 {
   if(!file2.open(fileName, File::readFlag | File::writeFlag | File::openFlag))
     return lastError = fileError, false;

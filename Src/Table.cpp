@@ -7,7 +7,7 @@
 
 bool_t Table::open()
 {
-  if(!tableFile->open(name))
+  if(!tableFile->open())
     return false;
   lastEntityId = tableFile->getLastId();
   if(lastEntityId != 0)
@@ -24,7 +24,7 @@ bool_t Table::create(const zlimdb_entity* entity)
   if(dir != ".")
     Directory::create(dir);
 
-  if(!tableFile->create(name))
+  if(!tableFile->create())
     return false;
   if(entity && !tableFile->add(*(const TableFile::DataHeader*)entity, 0))
   {

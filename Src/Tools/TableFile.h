@@ -26,13 +26,14 @@ public:
   };
 
 public:
-  TableFile(uint32_t id) : tableId(id), lastError(noError) {}
+  TableFile(uint32_t id, const String& fileName) : tableId(id), fileName(fileName), lastError(noError) {}
 
   uint32_t getTableId() const {return tableId;}
   Error getLastError() const {return lastError;}
+  String getFileName() const {return fileName;}
 
-  bool_t create(const String& file);
-  bool_t open(const String& file);
+  bool_t create();
+  bool_t open();
   bool_t isOpen() const {return file2.isOpen();}
   void_t close() {file2.close();}
   uint64_t getLastId() const {return lastId;}
@@ -71,6 +72,7 @@ private:
 
 private:
   uint32_t tableId;
+  String fileName;
   File file2;
   FileHeader fileHeader;
   Buffer keys;

@@ -15,7 +15,7 @@ class Subscription;
 class Table
 {
 public:
-  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id)), lastEntityId(0), minTimeOffset(0x7fffffffffffffffLL) {}
+  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), minTimeOffset(0x7fffffffffffffffLL) {}
   ~Table() {delete tableFile;}
 
   uint32_t getId() const {return id;}
