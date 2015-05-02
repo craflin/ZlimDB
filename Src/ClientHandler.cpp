@@ -110,6 +110,12 @@ void_t ClientHandler::handleMessage(zlimdb_header& header)
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
     break;
+  case zlimdb_message_clear_request:
+    if(header.size >= sizeof(zlimdb_clear_request))
+      handleClear((zlimdb_clear_request&)header);
+    else
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+    break;
   default:
     sendErrorResponse(header.request_id, zlimdb_error_invalid_message_type);
     break;
@@ -369,6 +375,33 @@ void_t ClientHandler::handleSync(const zlimdb_sync_request& sync)
       syncResponse.table_time = now;
       syncResponse.server_time = now + table->getTimeOffset();
       return sendResponse(syncResponse.header);
+    }
+  }
+}
+
+void_t ClientHandler::handleClear(zlimdb_clear_request& clear)
+{
+  switch(clear.table_id)
+  {
+  case zlimdb_table_clients:
+  case zlimdb_table_tables:
+    return sendErrorResponse(clear.header.request_id, zlimdb_error_invalid_request);
+  default:
+    {
+      Table* table = serverHandler.findTable(clear.table_id);
+      if(!table)
+        return sendErrorResponse(clear.header.request_id, zlimdb_error_table_not_found);
+
+      serverHandler.createWorkerJob(*this, *table, &clear, clear.header.size);
+      
+      // notify subscribers
+      HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      clear.header.request_id = 0;
+      for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+      {
+        Subscription* subscription = *i;
+        subscription->getClientHandler()->client.send((const byte_t*)&clear, clear.header.size);
+      }
     }
   }
 }

@@ -81,6 +81,9 @@ void_t WorkerThread::handleMessage(const zlimdb_header& header)
   case zlimdb_message_subscribe_request:
     handleSubscribe((zlimdb_subscribe_request&)header);
     break;
+  case zlimdb_message_clear_request:
+    handleClear((const zlimdb_clear_request&)header);
+    break;
   default:
     ASSERT(false);
     break;
@@ -152,7 +155,7 @@ void_t WorkerThread::handleUpdate(const zlimdb_update_request& update)
   {
   case zlimdb_table_tables:
     {
-      // todo
+      // todo: isn't this filtered in clientHandler?
       break;
     }
   default:
@@ -296,6 +299,31 @@ void_t WorkerThread::handleQueryOrSubscribe(zlimdb_query_request& query, zlimdb_
       break;
     }
     break;
+  }
+}
+
+void_t WorkerThread::handleClear(const zlimdb_clear_request& clear)
+{
+  TableFile& tableFile = currentWorkerJob->getTableFile();
+  switch(clear.table_id)
+  {
+  case zlimdb_table_tables:
+    {
+      // todo: isn't this filtered in clientHandler?
+      break;
+    }
+  default:
+    {
+      tableFile.close();
+      if(!tableFile.create())
+        return sendErrorResponse(clear.header.request_id, zlimdb_error_write_file);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(zlimdb_header));
+      zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(*response, zlimdb_message_clear_response, sizeof(*response), clear.header.request_id);
+      break;
+    }
   }
 }
 

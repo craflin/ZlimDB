@@ -39,6 +39,7 @@ private:
   void_t handleQuery(zlimdb_query_request& query);
   void_t handleSubscribe(zlimdb_subscribe_request& subscribe);
   void_t handleQueryOrSubscribe(zlimdb_query_request& query, zlimdb_message_type responseType);
+  void_t handleClear(const zlimdb_clear_request& clear);
 
   void_t sendErrorResponse(uint32_t requestId, zlimdb_message_error error);
 };
