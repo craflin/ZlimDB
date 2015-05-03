@@ -31,7 +31,7 @@ public:
   Table* findTable(uint32_t id) const;
   Table* findTable(const String& name) const;
 
-  WorkerJob& createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size);
+  WorkerJob& createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size, uint64_t param1);
   void_t removeWorkerJob(WorkerJob& workerJob);
 
   Subscription& createSubscription(ClientHandler& clientHandler, Table& table);

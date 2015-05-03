@@ -36,6 +36,7 @@ public:
   bool_t open();
   bool_t isOpen() const {return file2.isOpen();}
   void_t close() {file2.close();}
+  bool_t copy(const String& dest);
   uint64_t getLastId() const {return lastId;}
   timestamp_t getTimeOffset() const {return fileHeader.timeOffset;}
   bool_t add(const DataHeader& data, timestamp_t timeOffset);
@@ -105,4 +106,5 @@ private:
   static void_t compressBuffer(const Buffer& buffer, Buffer& compressedBuffer, size_t offset);
   static void_t compressBuffer(const void_t* data, size_t size, Buffer& compressedBuffer);
   bool_t decompressBuffer(const Buffer& compressedBuffer, Buffer& buffer);
+  bool_t decompressBuffer(const Buffer& compressedBuffer, Buffer& buffer, size_t offset);
 };

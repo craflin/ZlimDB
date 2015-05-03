@@ -10,7 +10,7 @@ class TableFile;
 class WorkerJob
 {
 public:
-  WorkerJob(ClientHandler& clientHandler, Table& table, TableFile& tableFile, const void* request, size_t size) : clientHandler(&clientHandler), table(table), tableFile(tableFile), requestBuffer((const byte_t*)request, size) {}
+  WorkerJob(ClientHandler& clientHandler, Table& table, TableFile& tableFile, const void* request, size_t size, uint64_t param1) : clientHandler(&clientHandler), table(table), tableFile(tableFile), requestBuffer((const byte_t*)request, size), param1(param1) {}
 
   void_t detachClientHandler() {clientHandler = 0;}
   bool_t isValid() const {return clientHandler != 0;}
@@ -22,8 +22,8 @@ public:
   const Buffer& getResponseData() const {return responseBuffer;}
   Buffer& getResponseData() {return responseBuffer;}
   TableFile& getTableFile() {return tableFile;}
-  void_t setTimeOffset(timestamp_t timeOffset) {this->timeOffset = timeOffset;}
-  timestamp_t getTimeOffset() const {return timeOffset;}
+  void_t setParam1(uint64_t param1) {this->param1 = param1;}
+  timestamp_t getParam1() const {return param1;}
 
 private:
   bool_t valid;
@@ -32,6 +32,5 @@ private:
   TableFile& tableFile;
   Buffer requestBuffer;
   Buffer responseBuffer;
-  timestamp_t timeOffset;
-
+  uint64_t param1;
 };

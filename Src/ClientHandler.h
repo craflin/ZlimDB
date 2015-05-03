@@ -60,11 +60,13 @@ private:
   void_t handleQuery(const zlimdb_query_request& query);
   void_t handleSync(const zlimdb_sync_request& sync);
   void_t handleClear(zlimdb_clear_request& clear);
+  void_t handleCopy(const zlimdb_copy_request& copy);
 
   void_t handleMetaQuery(const zlimdb_query_request& query, zlimdb_message_type responseType);
 
   void_t handleInternalLoginResponse(const zlimdb_login_response& loginResponse);
   void_t handleInternalSubscribeResponse(WorkerJob& workerJob, zlimdb_header& subscribeResponse);
+  void_t handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_header& copyResponse);
   void_t handleInternalErrorResponse(WorkerJob& workerJob, const zlimdb_error_response& errorResponse);
 
   void_t sendErrorResponse(uint32_t requestId, zlimdb_message_error error);

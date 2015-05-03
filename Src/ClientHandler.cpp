@@ -116,6 +116,12 @@ void_t ClientHandler::handleMessage(zlimdb_header& header)
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
     break;
+  case zlimdb_message_copy_request:
+    if(header.size >= sizeof(zlimdb_copy_request))
+      handleCopy((zlimdb_copy_request&)header);
+    else
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+    break;
   default:
     sendErrorResponse(header.request_id, zlimdb_error_invalid_message_type);
     break;
@@ -130,7 +136,7 @@ void_t ClientHandler::handleLogin(const zlimdb_login_request& login)
   Table* table = serverHandler.findTable(String("users/") + userName + "/user");
   if(!table)
     return sendErrorResponse(login.header.request_id, zlimdb_error_invalid_login);
-  serverHandler.createWorkerJob(*this, *table, &login, sizeof(login));
+  serverHandler.createWorkerJob(*this, *table, &login, sizeof(login), 0);
 }
 
 void_t ClientHandler::handleAuth(const zlimdb_auth_request& auth)
@@ -172,7 +178,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
       table = &serverHandler.createTable(tableName);
 
       // create internal job to create the file
-      serverHandler.createWorkerJob(*this, *table, &add, add.header.size);
+      serverHandler.createWorkerJob(*this, *table, &add, add.header.size, 0);
 
       // notify subscribers
       table = serverHandler.findTable(zlimdb_table_tables);
@@ -208,8 +214,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
       timestamp_t timeOffset = table->updateTimeOffset(now - entity->time);
 
       // create job to add entity
-      WorkerJob& workerJob = serverHandler.createWorkerJob(*this, *table, &add, add.header.size);
-      workerJob.setTimeOffset(timeOffset);
+      WorkerJob& workerJob = serverHandler.createWorkerJob(*this, *table, &add, add.header.size, (uint64_t)timeOffset);
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
@@ -238,7 +243,7 @@ void_t ClientHandler::handleUpdate(zlimdb_update_request& update)
       if(!table)
         return sendErrorResponse(update.header.request_id, zlimdb_error_table_not_found);
 
-      serverHandler.createWorkerJob(*this, *table, &update, update.header.size);
+      serverHandler.createWorkerJob(*this, *table, &update, update.header.size, 0);
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
@@ -267,7 +272,7 @@ void_t ClientHandler::handleRemove(zlimdb_remove_request& remove)
 
       // create internal job to delete the file
       table->invalidate();
-      serverHandler.createWorkerJob(*this, *table, &remove, remove.header.size);
+      serverHandler.createWorkerJob(*this, *table, &remove, remove.header.size, 0);
 
       // notify subscribers
       table = serverHandler.findTable(zlimdb_table_tables);
@@ -287,7 +292,7 @@ void_t ClientHandler::handleRemove(zlimdb_remove_request& remove)
       if(!table)
         return sendErrorResponse(remove.header.request_id, zlimdb_error_table_not_found);
 
-      serverHandler.createWorkerJob(*this, *table, &remove, remove.header.size);
+      serverHandler.createWorkerJob(*this, *table, &remove, remove.header.size, 0);
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
@@ -318,7 +323,7 @@ void_t ClientHandler::handleSubscribe(const zlimdb_subscribe_request& subscribe)
       return sendOkResponse(zlimdb_message_subscribe_response, subscribe.header.request_id);
     }
     else
-      serverHandler.createWorkerJob(*this, *table, &subscribe, sizeof(subscribe));
+      serverHandler.createWorkerJob(*this, *table, &subscribe, sizeof(subscribe), 0);
   }
   else
   {
@@ -345,7 +350,7 @@ void_t ClientHandler::handleQuery(const zlimdb_query_request& query)
   if(!table)
     return sendErrorResponse(query.header.request_id, zlimdb_error_table_not_found);
   if(table->getTableFile())
-    serverHandler.createWorkerJob(*this, *table, &query, sizeof(query));
+    serverHandler.createWorkerJob(*this, *table, &query, sizeof(query), 0);
   else
     handleMetaQuery(query, zlimdb_message_query_response);
 }
@@ -392,7 +397,7 @@ void_t ClientHandler::handleClear(zlimdb_clear_request& clear)
       if(!table)
         return sendErrorResponse(clear.header.request_id, zlimdb_error_table_not_found);
 
-      serverHandler.createWorkerJob(*this, *table, &clear, clear.header.size);
+      serverHandler.createWorkerJob(*this, *table, &clear, clear.header.size, 0);
       
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
@@ -403,6 +408,34 @@ void_t ClientHandler::handleClear(zlimdb_clear_request& clear)
         subscription->getClientHandler()->client.send((const byte_t*)&clear, clear.header.size);
       }
     }
+  }
+}
+
+void_t ClientHandler::handleCopy(const zlimdb_copy_request& copy)
+{
+  switch(copy.table_id)
+  {
+  case zlimdb_table_clients:
+  case zlimdb_table_tables:
+    return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_request);
+  default:
+    {
+      // find source table
+      Table* table = serverHandler.findTable(copy.table_id);
+      if(!table)
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_table_not_found);
+
+      // check if destination table does already exist
+      String newTableName;
+      if(!ClientProtocol::getString(copy.header, sizeof(copy), copy.new_name_size, newTableName))
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
+      if(serverHandler.findTable(newTableName))
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_table_already_exists);
+
+      // create job to copy the table file
+      serverHandler.createWorkerJob(*this, *table, &copy, copy.header.size, 0);
+    }
+    break;
   }
 }
 
@@ -501,6 +534,9 @@ void_t ClientHandler::handleWorkerJob(WorkerJob& workerJob)
   case zlimdb_message_subscribe_response:
     handleInternalSubscribeResponse(workerJob, (zlimdb_header&)*header);
     break;
+  case zlimdb_message_copy_response:
+    handleInternalCopyResponse(workerJob, (zlimdb_header&)*header);
+    break;
   case zlimdb_message_error_response:
     handleInternalErrorResponse(workerJob, (const zlimdb_error_response&)*header);
     break;
@@ -574,6 +610,50 @@ void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, zlim
   }
 }
 
+void_t ClientHandler::handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_header& copyResponse)
+{
+  if(workerJob.getParam1() == 0)
+  {
+    const Buffer& request = workerJob.getRequestData();
+    const zlimdb_copy_request* copyRequest = (const zlimdb_copy_request*)(const byte_t*)request;
+
+    // get new table name
+    String newTableName;
+    if(!ClientProtocol::getString(copyRequest->header, sizeof(*copyRequest), copyRequest->new_name_size, newTableName))
+      return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_invalid_message_data);
+
+    if(serverHandler.findTable(newTableName))
+      return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_table_already_exists);
+
+    // create table without opening the file
+    Table* table = &serverHandler.createTable(newTableName);
+
+    // create internal job to open the copied the file
+    serverHandler.createWorkerJob(*this, *table, copyRequest, copyRequest->header.size, 1);
+
+    // notify subscribers
+    table = serverHandler.findTable(zlimdb_table_tables);
+    HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+    Buffer buffer;
+    buffer.resize(sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + newTableName.length());
+    zlimdb_add_request* addRequest = (zlimdb_add_request*)(byte_t*)buffer;
+    ClientProtocol::setHeader(addRequest->header, zlimdb_message_add_request, buffer.size(), 0);
+    zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(addRequest + 1);
+    ClientProtocol::setEntityHeader(tableEntity->entity, table->getId(), Time::time(), sizeof(zlimdb_table_entity) + newTableName.length());
+    ClientProtocol::setString(tableEntity->entity, tableEntity->name_size, sizeof(zlimdb_table_entity), newTableName);
+    for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+    {
+      Subscription* subscription = *i;
+      if(subscription->isSynced())
+        subscription->getClientHandler()->client.send((const byte_t*)addRequest, addRequest->header.size);
+    }
+  }
+  else
+  {
+    client.send((const byte_t*)&copyResponse, copyResponse.size);
+  }
+}
+
 void_t ClientHandler::handleInternalErrorResponse(WorkerJob& workerJob, const zlimdb_error_response& errorResponse)
 {
   const Buffer& request = workerJob.getRequestData();
@@ -600,6 +680,27 @@ void_t ClientHandler::handleInternalErrorResponse(WorkerJob& workerJob, const zl
           if(subscription->isSynced())
             subscription->getClientHandler()->client.send((const byte_t*)&removeRequest, removeRequest.header.size);
         }
+      }
+    }
+  }
+  else if(requestHeader->message_type == zlimdb_message_copy_request && workerJob.getParam1() != 0)
+  {
+    Table& table = workerJob.getTable();
+    table.invalidate();
+
+    // notify subcribers
+    {
+      zlimdb_remove_request removeRequest;
+      ClientProtocol::setHeader(removeRequest.header, zlimdb_message_remove_request, sizeof(removeRequest), 0);
+      removeRequest.table_id = zlimdb_table_tables;
+      removeRequest.id = table.getId();
+      Table* table = serverHandler.findTable(zlimdb_table_tables);
+      HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+      {
+        Subscription* subscription = *i;
+        if(subscription->isSynced())
+          subscription->getClientHandler()->client.send((const byte_t*)&removeRequest, removeRequest.header.size);
       }
     }
   }

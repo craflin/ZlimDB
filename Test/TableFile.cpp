@@ -10,9 +10,9 @@ void_t testTableFile()
 {
   // test create and open
   {
-    TableFile file(123);
+    TableFile file(123, "test.test");
     ASSERT(file.getTableId() == 123);
-    ASSERT(file.create("test.test"));
+    ASSERT(file.create());
     ASSERT(file.isOpen());
     ASSERT(file.getLastId() == 0);
     uint64_t blockId;
@@ -24,7 +24,7 @@ void_t testTableFile()
     ASSERT(file.getTimeOffset() == 0x7fffffffffffffffLL);
     file.close();
     ASSERT(!file.isOpen());
-    ASSERT(file.open("test.test"));
+    ASSERT(file.open());
     ASSERT(file.isOpen());
     ASSERT(file.getLastId() == 0);
     ASSERT(file.getFirstCompressedBlock(blockId, buffer, 0));
@@ -38,8 +38,8 @@ void_t testTableFile()
 
   // test add, read, close and read again
   {
-    TableFile file(213);
-    ASSERT(file.create("test.test"));
+    TableFile file(213, "test.test");
+    ASSERT(file.create());
     byte_t entityBuffer[51];
     TableFile::DataHeader* dataHeader = (TableFile::DataHeader*)entityBuffer;
     dataHeader->timestamp = 323;
@@ -55,7 +55,7 @@ void_t testTableFile()
     for(int j = 0; j < 2; ++j)
     {
       if(j > 0)
-        file.open("test.test");
+        file.open();
       uint64_t blockId;
       Buffer compressedBlock;
       byte_t decompressedBuffer[0xffff];
@@ -89,8 +89,8 @@ void_t testTableFile()
 
   // test remove bottom to top
   {
-    TableFile file(213);
-    ASSERT(file.create("test.test"));
+    TableFile file(213, "test.test");
+    ASSERT(file.create());
     byte_t entityBuffer[51];
     TableFile::DataHeader* dataHeader = (TableFile::DataHeader*)entityBuffer;
     dataHeader->timestamp = 323;
@@ -115,8 +115,8 @@ void_t testTableFile()
 
   // test remove top to bottom
   {
-    TableFile file(213);
-    ASSERT(file.create("test.test"));
+    TableFile file(213, "test.test");
+    ASSERT(file.create());
     byte_t entityBuffer[51];
     TableFile::DataHeader* dataHeader = (TableFile::DataHeader*)entityBuffer;
     dataHeader->timestamp = 323;

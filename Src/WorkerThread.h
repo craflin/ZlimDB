@@ -36,10 +36,11 @@ private:
   void_t handleAdd(const zlimdb_add_request& add);
   void_t handleUpdate(const zlimdb_update_request& update);
   void_t handleRemove(const zlimdb_remove_request& remove);
-  void_t handleQuery(zlimdb_query_request& query);
-  void_t handleSubscribe(zlimdb_subscribe_request& subscribe);
-  void_t handleQueryOrSubscribe(zlimdb_query_request& query, zlimdb_message_type responseType);
+  void_t handleQuery(const zlimdb_query_request& query);
+  void_t handleSubscribe(const zlimdb_subscribe_request& subscribe);
+  void_t handleQueryOrSubscribe(const zlimdb_query_request& query, zlimdb_message_type responseType);
   void_t handleClear(const zlimdb_clear_request& clear);
+  void_t handleCopy(const zlimdb_copy_request& copy);
 
   void_t sendErrorResponse(uint32_t requestId, zlimdb_message_error error);
 };

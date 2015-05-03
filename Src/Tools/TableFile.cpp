@@ -128,6 +128,33 @@ bool_t TableFile::open()
   return lastError = noError, true;
 }
 
+bool_t TableFile::copy(const String& dest)
+{
+  File destFile;
+  if(!destFile.open(dest, File::writeFlag))
+    return false;
+  if(file2.seek(0) != 0)
+    return false;
+  Buffer buffer;
+  buffer.resize(4 * 1024 * 1024);
+  for(;;)
+  {
+    ssize_t bytes = file2.read(buffer, 4 * 1024 * 1024);
+    switch(bytes)
+    {
+    case 0:
+      goto done;
+    case -1:
+      return false;
+    default:
+      if(destFile.write(buffer, bytes) != bytes)
+        return false;
+    }
+  }
+done:
+  return true;
+}
+
 bool_t TableFile::get(uint64_t id, Buffer& result, size_t dataOffset)
 {
   const Key* key = findBlockKey(id);
@@ -201,6 +228,7 @@ bool_t TableFile::getCompressedBlockByTime(uint64_t timestamp, uint64_t& blockId
   blockId = key->id;
   return lastError = noError, true;
 }
+
 bool_t TableFile::getFirstCompressedBlock(uint64_t& blockId, Buffer& data, size_t dataOffset)
 {
   if(keys.isEmpty())
@@ -985,6 +1013,17 @@ found:;
   int_t originalSize = *(const uint16_t*)(const byte_t*)compressedBuffer;
   buffer.resize(originalSize);
   if(LZ4_decompress_safe((const char*)(const byte_t*)compressedBuffer + sizeof(uint16_t), (char_t*)(byte_t*)buffer, compressedBuffer.size() - sizeof(uint16_t), originalSize) != originalSize)
+    return lastError = dataError, false;
+  return true;
+}
+
+/*private*/ bool_t TableFile::decompressBuffer(const Buffer& compressedBuffer, Buffer& buffer, size_t offset)
+{
+  if(compressedBuffer.size() < sizeof(uint16_t))
+    return lastError = dataError, false;
+  int_t originalSize = *(const uint16_t*)(const byte_t*)compressedBuffer;
+  buffer.resize(offset + originalSize);
+  if(LZ4_decompress_safe((const char*)(const byte_t*)compressedBuffer + sizeof(uint16_t), (char_t*)(byte_t*)buffer + offset, compressedBuffer.size() - sizeof(uint16_t), originalSize) != originalSize)
     return lastError = dataError, false;
   return true;
 }

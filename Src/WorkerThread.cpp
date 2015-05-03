@@ -84,6 +84,9 @@ void_t WorkerThread::handleMessage(const zlimdb_header& header)
   case zlimdb_message_clear_request:
     handleClear((const zlimdb_clear_request&)header);
     break;
+  case zlimdb_message_copy_request:
+    handleCopy((const zlimdb_copy_request&)header);
+    break;
   default:
     ASSERT(false);
     break;
@@ -135,7 +138,8 @@ void_t WorkerThread::handleAdd(const zlimdb_add_request& add)
       const TableFile::DataHeader* data = (const TableFile::DataHeader*)(&add + 1);
       if(data->size != add.header.size - sizeof(add))
         return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
-      if(!tableFile.add(*data, currentWorkerJob->getTimeOffset()))
+      timestamp_t timeOffset = (timestamp_t)currentWorkerJob->getParam1();
+      if(!tableFile.add(*data, timeOffset))
         return sendErrorResponse(add.header.request_id, tableFile.getLastError() == TableFile::argumentError ? zlimdb_error_entity_id : zlimdb_error_write_file);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
@@ -207,17 +211,17 @@ void_t WorkerThread::handleRemove(const zlimdb_remove_request& remove)
   }
 }
 
-void_t WorkerThread::handleQuery(zlimdb_query_request& query)
+void_t WorkerThread::handleQuery(const zlimdb_query_request& query)
 {
   return handleQueryOrSubscribe(query, zlimdb_message_query_response);
 }
 
-void_t WorkerThread::handleSubscribe(zlimdb_subscribe_request& subscribe)
+void_t WorkerThread::handleSubscribe(const zlimdb_subscribe_request& subscribe)
 {
   return handleQueryOrSubscribe(subscribe, zlimdb_message_subscribe_response);
 }
 
-void_t WorkerThread::handleQueryOrSubscribe(zlimdb_query_request& query, zlimdb_message_type responseType)
+void_t WorkerThread::handleQueryOrSubscribe(const zlimdb_query_request& query, zlimdb_message_type responseType)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
   Buffer& responseBuffer = currentWorkerJob->getResponseData();
@@ -226,22 +230,22 @@ void_t WorkerThread::handleQueryOrSubscribe(zlimdb_query_request& query, zlimdb_
   case zlimdb_query_type_all:
     {
       uint64_t blockId;
-      if(query.param == 0)
+      if(currentWorkerJob->getParam1() == 0)
       {
         if(!tableFile.getFirstCompressedBlock(blockId, responseBuffer, sizeof(zlimdb_header)))
           return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
       }
-      else if(!tableFile.getNextCompressedBlock(query.param, blockId, responseBuffer, sizeof(zlimdb_header)))
+      else if(!tableFile.getNextCompressedBlock(currentWorkerJob->getParam1(), blockId, responseBuffer, sizeof(zlimdb_header)))
         return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       response->flags = zlimdb_header_flag_compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
       {
         response->flags |= zlimdb_header_flag_fragmented;
-        query.param = blockId;
+        currentWorkerJob->setParam1(blockId);
       }
       else
-        query.param = tableFile.getLastId();
+        currentWorkerJob->setParam1(tableFile.getLastId());
       response->message_type = responseType;
       response->request_id = query.header.request_id;
       response->size = responseBuffer.size();
@@ -261,18 +265,17 @@ void_t WorkerThread::handleQueryOrSubscribe(zlimdb_query_request& query, zlimdb_
   case zlimdb_query_type_since_id:
     {
       uint64_t blockId;
-      if(!tableFile.getCompressedBlock(query.param, blockId, responseBuffer, sizeof(zlimdb_header)))
+      if(!tableFile.getCompressedBlock(currentWorkerJob->getParam1() == 0 ? query.param : currentWorkerJob->getParam1(), blockId, responseBuffer, sizeof(zlimdb_header)))
         return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       response->flags = zlimdb_header_flag_compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
       {
         response->flags |= zlimdb_header_flag_fragmented;
-        query.param = blockId;
+        currentWorkerJob->setParam1(blockId);
       }
       else
-        query.param = tableFile.getLastId();
-      query.type = zlimdb_query_type_all;
+        currentWorkerJob->setParam1(tableFile.getLastId());
       response->message_type = responseType;
       response->request_id = query.header.request_id;
       response->size = responseBuffer.size();
@@ -281,18 +284,22 @@ void_t WorkerThread::handleQueryOrSubscribe(zlimdb_query_request& query, zlimdb_
   case zlimdb_query_type_since_time:
     {
       uint64_t blockId;
-      if(!tableFile.getCompressedBlockByTime(query.param, blockId, responseBuffer, sizeof(zlimdb_header)))
+      if(currentWorkerJob->getParam1() == 0)
+      {
+        if(!tableFile.getCompressedBlockByTime(query.param, blockId, responseBuffer, sizeof(zlimdb_header)))
+          return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
+      }
+      else if(!tableFile.getNextCompressedBlock(currentWorkerJob->getParam1(), blockId, responseBuffer, sizeof(zlimdb_header)))
         return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       response->flags = zlimdb_header_flag_compressed;
       if(tableFile.hasNextCompressedBlock(blockId))
       {
         response->flags |= zlimdb_header_flag_fragmented;
-        query.param = blockId;
+        currentWorkerJob->setParam1(blockId);
       }
       else
-        query.param = tableFile.getLastId();
-      query.type = zlimdb_query_type_all;
+        currentWorkerJob->setParam1(tableFile.getLastId());
       response->message_type = responseType;
       response->request_id = query.header.request_id;
       response->size = responseBuffer.size();
@@ -323,6 +330,48 @@ void_t WorkerThread::handleClear(const zlimdb_clear_request& clear)
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       ClientProtocol::setHeader(*response, zlimdb_message_clear_response, sizeof(*response), clear.header.request_id);
       break;
+    }
+  }
+}
+
+void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
+{
+  TableFile& tableFile = currentWorkerJob->getTableFile();
+  switch(copy.table_id)
+  {
+  case zlimdb_table_tables:
+    {
+      // todo: isn't this filtered in clientHandler?
+      break;
+    }
+  default:
+    if(currentWorkerJob->getParam1() == 0)
+    {
+      String copyFileName;
+      if(!ClientProtocol::getString(copy.header, sizeof(copy), copy.new_name_size, copyFileName))
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
+
+      const String& fileName = tableFile.getFileName();
+      const String tempFileName = File::dirname(fileName) + "/." + File::basename(fileName) + ".tmp";
+      if(!tableFile.copy(tempFileName) || !File::rename(tempFileName, copyFileName))
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(zlimdb_header));
+      zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(*response, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
+      break;
+    }
+    else
+    {
+      if(!tableFile.open())
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_open_file);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(zlimdb_copy_response));
+      zlimdb_copy_response* response = (zlimdb_copy_response*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(response->header, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
+      response->id = tableFile.getTableId();
     }
   }
 }

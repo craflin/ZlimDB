@@ -202,9 +202,9 @@ void_t ServerHandler::closedClient(Server::Client& client)
   delete workerHandler;
 }
 
-WorkerJob& ServerHandler::createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size)
+WorkerJob& ServerHandler::createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size, uint64_t param1)
 {
-  WorkerJob* workerJob = new WorkerJob(clientHandler, table, *table.getTableFile(), data, size);
+  WorkerJob* workerJob = new WorkerJob(clientHandler, table, *table.getTableFile(), data, size, param1);
   WorkerHandler* workerHandler = table.getWorkerHandler();
   if(!workerHandler)
   {
