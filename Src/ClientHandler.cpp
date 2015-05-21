@@ -419,7 +419,12 @@ void_t ClientHandler::handleCopy(const zlimdb_copy_request& copy)
   case zlimdb_table_tables:
     return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_request);
   default:
+    if(copy.header.size < sizeof(copy) + sizeof(zlimdb_table_entity))
+      return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_size);
+    else
     {
+      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&copy + 1);
+
       // find source table
       Table* table = serverHandler.findTable(copy.table_id);
       if(!table)
@@ -427,7 +432,7 @@ void_t ClientHandler::handleCopy(const zlimdb_copy_request& copy)
 
       // check if destination table does already exist
       String newTableName;
-      if(!ClientProtocol::getString(copy.header, sizeof(copy), copy.new_name_size, newTableName))
+      if(!ClientProtocol::getString(copy.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, newTableName))
         return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
       if(serverHandler.findTable(newTableName))
         return sendErrorResponse(copy.header.request_id, zlimdb_error_table_already_exists);
@@ -619,11 +624,13 @@ void_t ClientHandler::handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_he
 
     // get new table name
     String newTableName;
-    if(!ClientProtocol::getString(copyRequest->header, sizeof(*copyRequest), copyRequest->new_name_size, newTableName))
-      return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_invalid_message_data);
-
-    if(serverHandler.findTable(newTableName))
-      return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_table_already_exists);
+    {
+      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(copyRequest + 1);
+      if(!ClientProtocol::getString(copyRequest->header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, newTableName))
+        return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_invalid_message_data);
+      if(serverHandler.findTable(newTableName))
+        return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_table_already_exists);
+    }
 
     // create table without opening the file
     Table* table = &serverHandler.createTable(newTableName);

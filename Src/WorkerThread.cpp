@@ -157,6 +157,7 @@ void_t WorkerThread::handleUpdate(const zlimdb_update_request& update)
   TableFile& tableFile = currentWorkerJob->getTableFile();
   switch(update.table_id)
   {
+  case zlimdb_table_clients:
   case zlimdb_table_tables:
     {
       // todo: isn't this filtered in clientHandler?
@@ -314,6 +315,7 @@ void_t WorkerThread::handleClear(const zlimdb_clear_request& clear)
   TableFile& tableFile = currentWorkerJob->getTableFile();
   switch(clear.table_id)
   {
+  case zlimdb_table_clients:
   case zlimdb_table_tables:
     {
       // todo: isn't this filtered in clientHandler?
@@ -339,39 +341,47 @@ void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
   TableFile& tableFile = currentWorkerJob->getTableFile();
   switch(copy.table_id)
   {
+  case zlimdb_table_clients:
   case zlimdb_table_tables:
     {
       // todo: isn't this filtered in clientHandler?
       break;
     }
   default:
-    if(currentWorkerJob->getParam1() == 0)
-    {
-      String copyFileName;
-      if(!ClientProtocol::getString(copy.header, sizeof(copy), copy.new_name_size, copyFileName))
-        return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
-
-      const String& fileName = tableFile.getFileName();
-      const String tempFileName = File::dirname(fileName) + "/." + File::basename(fileName) + ".tmp";
-      if(!tableFile.copy(tempFileName) || !File::rename(tempFileName, copyFileName))
-        return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
-
-      Buffer& responseBuffer = currentWorkerJob->getResponseData();
-      responseBuffer.resize(sizeof(zlimdb_header));
-      zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
-      ClientProtocol::setHeader(*response, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
-      break;
-    }
+    if(copy.header.size < sizeof(copy) + sizeof(zlimdb_table_entity))
+      return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_size);
     else
     {
-      if(!tableFile.open())
-        return sendErrorResponse(copy.header.request_id, zlimdb_error_open_file);
+      if(currentWorkerJob->getParam1() == 0)
+      {
+        const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&copy + 1);
 
-      Buffer& responseBuffer = currentWorkerJob->getResponseData();
-      responseBuffer.resize(sizeof(zlimdb_copy_response));
-      zlimdb_copy_response* response = (zlimdb_copy_response*)(byte_t*)responseBuffer;
-      ClientProtocol::setHeader(response->header, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
-      response->id = tableFile.getTableId();
+        String copyFileName;
+        if(!ClientProtocol::getString(copy.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, copyFileName))
+          return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
+
+        const String& fileName = tableFile.getFileName();
+        const String tempFileName = File::dirname(fileName) + "/." + File::basename(fileName) + ".tmp";
+        if(!tableFile.copy(tempFileName) || !File::rename(tempFileName, copyFileName))
+          return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
+
+        Buffer& responseBuffer = currentWorkerJob->getResponseData();
+        responseBuffer.resize(sizeof(zlimdb_header));
+        zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
+        ClientProtocol::setHeader(*response, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
+        break;
+      }
+      else
+      {
+        if(!tableFile.open())
+          return sendErrorResponse(copy.header.request_id, zlimdb_error_open_file);
+
+        Buffer& responseBuffer = currentWorkerJob->getResponseData();
+        responseBuffer.resize(sizeof(zlimdb_copy_response));
+        zlimdb_copy_response* response = (zlimdb_copy_response*)(byte_t*)responseBuffer;
+        ClientProtocol::setHeader(response->header, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
+        response->id = tableFile.getTableId();
+      }
     }
   }
 }
