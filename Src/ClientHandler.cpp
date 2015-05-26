@@ -116,6 +116,12 @@ void_t ClientHandler::handleMessage(zlimdb_header& header)
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
     break;
+  case zlimdb_message_find_request:
+    if(header.size >= sizeof(zlimdb_find_request))
+      handleFind((zlimdb_find_request&)header);
+    else
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+    break;
   case zlimdb_message_copy_request:
     if(header.size >= sizeof(zlimdb_copy_request))
       handleCopy((zlimdb_copy_request&)header);
@@ -408,6 +414,31 @@ void_t ClientHandler::handleClear(zlimdb_clear_request& clear)
         subscription->getClientHandler()->client.send((const byte_t*)&clear, clear.header.size);
       }
     }
+  }
+}
+
+void_t ClientHandler::handleFind(zlimdb_find_request& find)
+{
+  if(find.header.size < sizeof(find) + sizeof(zlimdb_table_entity))
+    return sendErrorResponse(find.header.request_id, zlimdb_error_invalid_message_size);
+  else
+  {
+    // get table name
+    String tableName;
+    const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&find + 1);
+    if(!ClientProtocol::getString(find.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
+      return sendErrorResponse(find.header.request_id, zlimdb_error_invalid_message_data);
+
+    // find table
+    Table* table = serverHandler.findTable(tableName);
+    if(!table)
+      return sendErrorResponse(find.header.request_id, zlimdb_error_table_not_found);
+
+    // send response
+    zlimdb_find_response findResponse;
+    ClientProtocol::setHeader(findResponse.header, zlimdb_message_find_response, sizeof(findResponse), find.header.request_id);
+    findResponse.id = table->getId();
+    return sendResponse(findResponse.header);
   }
 }
 
