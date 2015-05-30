@@ -220,7 +220,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
       timestamp_t timeOffset = table->updateTimeOffset(now - entity->time);
 
       // create job to add entity
-      WorkerJob& workerJob = serverHandler.createWorkerJob(*this, *table, &add, add.header.size, (uint64_t)timeOffset);
+      serverHandler.createWorkerJob(*this, *table, &add, add.header.size, (uint64_t)timeOffset);
 
       // notify subscribers
       HashSet<Subscription*>& subscriptions = table->getSubscriptions();
