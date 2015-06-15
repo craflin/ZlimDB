@@ -47,8 +47,6 @@ public:
   bool_t getCompressedBlockByTime2(uint64_t timestamp, uint64_t& nextBlockId, Buffer& data, size_t dataOffset);
   bool_t getFirstCompressedBlock2(uint64_t& nextBlockId, Buffer& data, size_t dataOffset);
   void_t getEmptyCompressedBlock2(uint64_t& nextBlockId, Buffer& data, size_t dataOffset);
-  //bool_t hasNextCompressedBlock(uint64_t blockId, uint64_t& nextBlockId);
-  //bool_t getNextCompressedBlock(uint64_t lastBlockId, uint64_t& blockId, Buffer& data, size_t dataOffset);
 
 private:
 #pragma pack(push, 1)

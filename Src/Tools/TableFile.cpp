@@ -286,36 +286,6 @@ void_t TableFile::getEmptyCompressedBlock2(uint64_t& nextBlockId, Buffer& data, 
   compressBuffer(emptyBlock, data, dataOffset);
 }
 
-/*
-bool_t TableFile::hasNextCompressedBlock(uint64_t blockId, uint64_t& nextBlockId)
-{
-  const Key* key = findBlockKey(blockId);
-  if(!key)
-    return false;
-  const Key* keyEnd = (const Key*)(const byte_t*)keys + keys.size() / sizeof(Key);
-  ++key;
-  if(key >= keyEnd)
-    return lastError = noError, false;
-  nextBlockId = key->id;
-  return lastError = noError, true;
-}
-*/
-/*
-bool_t TableFile::getNextCompressedBlock(uint64_t lastBlockId, uint64_t& blockId, Buffer& data, size_t dataOffset)
-{
-  const Key* key = findBlockKey(lastBlockId);
-  if(!key)
-    return false;
-  const Key* keyEnd = (const Key*)(const byte_t*)keys + keys.size() / sizeof(Key);
-  ++key;
-  if(key >= keyEnd)
-    return lastError = notFoundError, false;
-  if(!getCompressedBlock(key, data, dataOffset))
-    return false;
-  blockId = key->id;
-  return lastError = noError, true;
-}
-*/
 bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
 {
   if(data.id <= lastId || data.timestamp < lastTimestamp)
@@ -796,30 +766,6 @@ bool_t TableFile::remove(uint64_t id)
     }
   return minKey;
 }
-
-/*
-
-remove/update/insert()
-{
-  if(sample in uncompressed block)
-  {
-    create copy of uncompressed block
-    remove from copy of uncompressed block
-    compress block 
-    write compressed block to end of file
-    update index
-    rewrite uncompressed block
-    update index
-    remove from uncompressed block
-  }
-  else
-  {
-    read compressed block
-    remove from compressed block
-    write compressed block to end of file
-  }
-}
-*/
 
 /*private*/ bool_t TableFile::getCompressedBlock(const Key* key, Buffer& data, size_t dataOffset)
 {
