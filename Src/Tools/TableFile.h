@@ -43,11 +43,12 @@ public:
   bool_t update(const DataHeader& data);
   bool_t remove(uint64_t id);
   bool_t get(uint64_t id, Buffer& data, size_t dataOffset);
-  bool_t getCompressedBlock(uint64_t id, uint64_t& blockId, Buffer& data, size_t dataOffset);
-  bool_t getCompressedBlockByTime(uint64_t timestamp, uint64_t& blockId, Buffer& data, size_t dataOffset);
-  bool_t getFirstCompressedBlock(uint64_t& blockId, Buffer& data, size_t dataOffset);
-  bool_t hasNextCompressedBlock(uint64_t blockId);
-  bool_t getNextCompressedBlock(uint64_t lastBlockId, uint64_t& blockId, Buffer& data, size_t dataOffset);
+  bool_t getCompressedBlock2(uint64_t id, uint64_t& nextBlockId, Buffer& data, size_t dataOffset);
+  bool_t getCompressedBlockByTime2(uint64_t timestamp, uint64_t& nextBlockId, Buffer& data, size_t dataOffset);
+  bool_t getFirstCompressedBlock2(uint64_t& nextBlockId, Buffer& data, size_t dataOffset);
+  void_t getEmptyCompressedBlock2(uint64_t& nextBlockId, Buffer& data, size_t dataOffset);
+  //bool_t hasNextCompressedBlock(uint64_t blockId, uint64_t& nextBlockId);
+  //bool_t getNextCompressedBlock(uint64_t lastBlockId, uint64_t& blockId, Buffer& data, size_t dataOffset);
 
 private:
 #pragma pack(push, 1)
@@ -105,6 +106,7 @@ private:
   static void_t compressBuffer(const Buffer& buffer, Buffer& compressedBuffer);
   static void_t compressBuffer(const Buffer& buffer, Buffer& compressedBuffer, size_t offset);
   static void_t compressBuffer(const void_t* data, size_t size, Buffer& compressedBuffer);
+  static void_t compressBuffer(const void_t* data, size_t size, Buffer& compressedBuffer, size_t offset);
   bool_t decompressBuffer(const Buffer& compressedBuffer, Buffer& buffer);
   bool_t decompressBuffer(const Buffer& compressedBuffer, Buffer& buffer, size_t offset);
 };

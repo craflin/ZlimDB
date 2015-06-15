@@ -207,53 +207,100 @@ found:;
   return lastError = noError, true;
 }
 
-bool_t TableFile::getCompressedBlock(uint64_t id, uint64_t& blockId, Buffer& data, size_t dataOffset)
+bool_t TableFile::getCompressedBlock2(uint64_t id, uint64_t& nextBlockId, Buffer& data, size_t dataOffset)
 {
   const Key* key = findBlockKey(id);
   if(!key)
     return false;
-  if(!getCompressedBlock(key, data, dataOffset))
+  const Key* keyEnd = (const Key*)(const byte_t*)keys + keys.size() / sizeof(Key);
+
+  if(key->id == id)
+  {
+    if(!getCompressedBlock(key, data, dataOffset))
+      return false;
+    nextBlockId = ++key < keyEnd ? key->id : 0;
+    return lastError = noError, true;
+  }
+
+  Buffer compressedBlock;
+  if(!getCompressedBlock(key, compressedBlock, 0))
     return false;
-  blockId = key->id;
+  Buffer decompressedBlock;
+  if(!decompressBuffer(compressedBlock, decompressedBlock))
+    return false;
+
+  DataHeader* dataHeader = (DataHeader*)(byte_t*)decompressedBlock;
+  size_t remainingDataSize = decompressedBlock.size();
+  while(remainingDataSize >= sizeof(DataHeader))
+  {
+    if(dataHeader->id == id)
+      goto found;
+    remainingDataSize -= dataHeader->size;
+    dataHeader = (DataHeader*)((byte_t*)dataHeader + dataHeader->size);
+  }
+
+  decompressedBlock.clear();
+  compressBuffer(decompressedBlock, data, dataOffset);
+  nextBlockId = ++key < keyEnd ? key->id : 0;
+  return lastError = noError, true;
+found:;
+
+  compressBuffer(dataHeader, remainingDataSize, data, dataOffset);
+  nextBlockId = ++key < keyEnd ? key->id : 0;
   return lastError = noError, true;
 }
 
-bool_t TableFile::getCompressedBlockByTime(uint64_t timestamp, uint64_t& blockId, Buffer& data, size_t dataOffset)
+bool_t TableFile::getCompressedBlockByTime2(uint64_t timestamp, uint64_t& nextBlockId, Buffer& data, size_t dataOffset)
 {
   const Key* key = findBlockKeyByTime(timestamp);
   if(!key)
-    return getFirstCompressedBlock(blockId, data, dataOffset);
+    return getFirstCompressedBlock2(nextBlockId, data, dataOffset);
   if(!getCompressedBlock(key, data, dataOffset))
     return false;
-  blockId = key->id;
+  const Key* keyEnd = (const Key*)(const byte_t*)keys + keys.size() / sizeof(Key);
+  nextBlockId = ++key < keyEnd ? key->id : 0;
   return lastError = noError, true;
 }
 
-bool_t TableFile::getFirstCompressedBlock(uint64_t& blockId, Buffer& data, size_t dataOffset)
+bool_t TableFile::getFirstCompressedBlock2(uint64_t& nextBlockId, Buffer& data, size_t dataOffset)
 {
   if(keys.isEmpty())
   {
-    blockId = 0;
+    nextBlockId = 0;
     data.resize(dataOffset + sizeof(uint16_t));
     *(uint16_t*)((byte_t*)data + dataOffset) = 0;
     return lastError = noError, true;
   }
-  const Key* firstKey = (const Key*)(const byte_t*)keys;
-  if(!getCompressedBlock(firstKey, data, dataOffset))
+  const Key* key = (const Key*)(const byte_t*)keys;
+  if(!getCompressedBlock(key, data, dataOffset))
     return false;
-  blockId = firstKey->id;
+  const Key* keyEnd = (const Key*)(const byte_t*)keys + keys.size() / sizeof(Key);
+  nextBlockId = ++key < keyEnd ? key->id : 0;
   return lastError = noError, true;
 }
 
-bool_t TableFile::hasNextCompressedBlock(uint64_t blockId)
+void_t TableFile::getEmptyCompressedBlock2(uint64_t& nextBlockId, Buffer& data, size_t dataOffset)
+{
+  nextBlockId = 0;
+  Buffer emptyBlock;
+  compressBuffer(emptyBlock, data, dataOffset);
+}
+
+/*
+bool_t TableFile::hasNextCompressedBlock(uint64_t blockId, uint64_t& nextBlockId)
 {
   const Key* key = findBlockKey(blockId);
   if(!key)
     return false;
   const Key* keyEnd = (const Key*)(const byte_t*)keys + keys.size() / sizeof(Key);
-  return lastError = noError, key + 1 < keyEnd;
+  ++key;
+  if(key >= keyEnd)
+    return lastError = noError, false;
+  nextBlockId = key->id;
+  return lastError = noError, true;
 }
-
+*/
+/*
 bool_t TableFile::getNextCompressedBlock(uint64_t lastBlockId, uint64_t& blockId, Buffer& data, size_t dataOffset)
 {
   const Key* key = findBlockKey(lastBlockId);
@@ -268,7 +315,7 @@ bool_t TableFile::getNextCompressedBlock(uint64_t lastBlockId, uint64_t& blockId
   blockId = key->id;
   return lastError = noError, true;
 }
-
+*/
 bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
 {
   if(data.id <= lastId || data.timestamp < lastTimestamp)
@@ -942,8 +989,8 @@ bool_t TableFile::removeEntity(uint64_t id, Buffer& block)
   {
     if(dataHeader->id == id)
       goto found;
-    dataHeader = (DataHeader*)((byte_t*)dataHeader + dataHeader->size);
     remainingDataSize -= dataHeader->size;
+    dataHeader = (DataHeader*)((byte_t*)dataHeader + dataHeader->size);
   }
   return lastError = notFoundError, false;
 found:;
@@ -965,8 +1012,8 @@ bool_t TableFile::updateEntity(const DataHeader& data, Buffer& block)
   {
     if(dataHeader->id == id)
       goto found;
-    dataHeader = (DataHeader*)((byte_t*)dataHeader + dataHeader->size);
     remainingDataSize -= dataHeader->size;
+    dataHeader = (DataHeader*)((byte_t*)dataHeader + dataHeader->size);
   }
   return lastError = notFoundError, false;
 found:;
@@ -1004,6 +1051,14 @@ found:;
   compressedBuffer.resize(sizeof(uint16_t) + LZ4_compressBound(size));
   compressedBuffer.resize(sizeof(uint16_t) + LZ4_compress((const char*)data, (char*)(byte_t*)compressedBuffer + sizeof(uint16_t), size));
   *(int16_t*)(byte_t*)compressedBuffer = size;
+}
+
+/*private static*/ void_t TableFile::compressBuffer(const void_t* data, size_t size, Buffer& compressedBuffer, size_t offset)
+{
+  size_t offsetAndSizeHeader = offset + sizeof(uint16_t);
+  compressedBuffer.resize(offsetAndSizeHeader + LZ4_compressBound(size));
+  compressedBuffer.resize(offsetAndSizeHeader + LZ4_compress((const char*)data, (char*)(byte_t*)compressedBuffer + offsetAndSizeHeader, size));
+  *(int16_t*)(byte_t*)(compressedBuffer + offset) = size;
 }
 
 /*private*/ bool_t TableFile::decompressBuffer(const Buffer& compressedBuffer, Buffer& buffer)

@@ -230,20 +230,21 @@ void_t WorkerThread::handleQueryOrSubscribe(const zlimdb_query_request& query, z
   {
   case zlimdb_query_type_all:
     {
-      uint64_t blockId;
-      if(currentWorkerJob->getParam1() == 0)
+      uint64_t nextBlockId;
+      if(currentWorkerJob->getParam1() == 0 ? 
+         !tableFile.getFirstCompressedBlock2(nextBlockId, responseBuffer, sizeof(zlimdb_header)) : 
+         !tableFile.getCompressedBlock2(currentWorkerJob->getParam1() + 1, nextBlockId, responseBuffer, sizeof(zlimdb_header)))
       {
-        if(!tableFile.getFirstCompressedBlock(blockId, responseBuffer, sizeof(zlimdb_header)))
-          return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
+        if(tableFile.getLastError() != TableFile::notFoundError)
+          return sendErrorResponse(query.header.request_id, zlimdb_error_read_file);
+        tableFile.getEmptyCompressedBlock2(nextBlockId, responseBuffer, sizeof(zlimdb_header));
       }
-      else if(!tableFile.getNextCompressedBlock(currentWorkerJob->getParam1(), blockId, responseBuffer, sizeof(zlimdb_header)))
-        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       response->flags = zlimdb_header_flag_compressed;
-      if(tableFile.hasNextCompressedBlock(blockId))
+      if(nextBlockId != 0)
       {
         response->flags |= zlimdb_header_flag_fragmented;
-        currentWorkerJob->setParam1(blockId);
+        currentWorkerJob->setParam1(nextBlockId - 1);
       }
       else
         currentWorkerJob->setParam1(tableFile.getLastId());
@@ -265,15 +266,15 @@ void_t WorkerThread::handleQueryOrSubscribe(const zlimdb_query_request& query, z
     }
   case zlimdb_query_type_since_id:
     {
-      uint64_t blockId;
-      if(!tableFile.getCompressedBlock(currentWorkerJob->getParam1() == 0 ? query.param : currentWorkerJob->getParam1(), blockId, responseBuffer, sizeof(zlimdb_header)))
+      uint64_t nextBlockId;
+      if(!tableFile.getCompressedBlock2(currentWorkerJob->getParam1() == 0 ? query.param : (currentWorkerJob->getParam1() + 1), nextBlockId, responseBuffer, sizeof(zlimdb_header)))
         return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       response->flags = zlimdb_header_flag_compressed;
-      if(tableFile.hasNextCompressedBlock(blockId))
+      if(nextBlockId != 0)
       {
         response->flags |= zlimdb_header_flag_fragmented;
-        currentWorkerJob->setParam1(blockId);
+        currentWorkerJob->setParam1(nextBlockId - 1);
       }
       else
         currentWorkerJob->setParam1(tableFile.getLastId());
@@ -284,20 +285,21 @@ void_t WorkerThread::handleQueryOrSubscribe(const zlimdb_query_request& query, z
     }
   case zlimdb_query_type_since_time:
     {
-      uint64_t blockId;
-      if(currentWorkerJob->getParam1() == 0)
+      uint64_t nextBlockId;
+      if(currentWorkerJob->getParam1() == 0 ?
+         !tableFile.getCompressedBlockByTime2(query.param, nextBlockId, responseBuffer, sizeof(zlimdb_header)) :
+         !tableFile.getCompressedBlock2(currentWorkerJob->getParam1() + 1, nextBlockId, responseBuffer, sizeof(zlimdb_header)))
       {
-        if(!tableFile.getCompressedBlockByTime(query.param, blockId, responseBuffer, sizeof(zlimdb_header)))
-          return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
+        if(tableFile.getLastError() != TableFile::notFoundError)
+          return sendErrorResponse(query.header.request_id, zlimdb_error_read_file);
+        tableFile.getEmptyCompressedBlock2(nextBlockId, responseBuffer, sizeof(zlimdb_header));
       }
-      else if(!tableFile.getNextCompressedBlock(currentWorkerJob->getParam1(), blockId, responseBuffer, sizeof(zlimdb_header)))
-        return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       response->flags = zlimdb_header_flag_compressed;
-      if(tableFile.hasNextCompressedBlock(blockId))
+      if(nextBlockId !=  0)
       {
         response->flags |= zlimdb_header_flag_fragmented;
-        currentWorkerJob->setParam1(blockId);
+        currentWorkerJob->setParam1(nextBlockId - 1);
       }
       else
         currentWorkerJob->setParam1(tableFile.getLastId());

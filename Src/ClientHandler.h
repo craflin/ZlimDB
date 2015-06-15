@@ -66,6 +66,10 @@ private:
   void_t handleMetaQuery(const zlimdb_query_request& query, zlimdb_message_type responseType);
 
   void_t handleInternalLoginResponse(const zlimdb_login_response& loginResponse);
+  void_t handleInternalAddResponse(WorkerJob& workerJob, const zlimdb_add_response& addResponse);
+  void_t handleInternalUpdateResponse(WorkerJob& workerJob, const zlimdb_header& updateResponse);
+  void_t handleInternalRemoveResponse(WorkerJob& workerJob, const zlimdb_header& removeResponse);
+  void_t handleInternalClearResponse(WorkerJob& workerJob, const zlimdb_header& clearResponse);
   void_t handleInternalSubscribeResponse(WorkerJob& workerJob, zlimdb_header& subscribeResponse);
   void_t handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_header& copyResponse);
   void_t handleInternalErrorResponse(WorkerJob& workerJob, const zlimdb_error_response& errorResponse);
