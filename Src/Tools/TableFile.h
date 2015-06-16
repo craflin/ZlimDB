@@ -36,6 +36,7 @@ public:
   bool_t open();
   bool_t isOpen() const {return file2.isOpen();}
   void_t close() {file2.close();}
+  bool_t clear();
   bool_t copy(const String& dest);
   uint64_t getLastId() const {return lastId;}
   timestamp_t getTimeOffset() const {return fileHeader.timeOffset;}

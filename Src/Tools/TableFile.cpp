@@ -128,6 +128,19 @@ bool_t TableFile::open()
   return lastError = noError, true;
 }
 
+bool_t TableFile::clear()
+{
+  uint64_t lastId = this->lastId;
+  close();
+  if(!create())
+  {
+    this->lastId = lastId;
+    return false;
+  }
+  this->lastId = lastId;
+  return true;
+}
+
 bool_t TableFile::copy(const String& dest)
 {
   File destFile;

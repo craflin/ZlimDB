@@ -325,8 +325,7 @@ void_t WorkerThread::handleClear(const zlimdb_clear_request& clear)
     }
   default:
     {
-      tableFile.close();
-      if(!tableFile.create())
+      if(!tableFile.clear())
         return sendErrorResponse(clear.header.request_id, zlimdb_error_write_file);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
