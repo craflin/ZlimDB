@@ -687,7 +687,6 @@ void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, zlim
   bool finished = (subscribeResponse.flags & zlimdb_header_flag_fragmented) == 0;
   if(finished)
   {
-    const zlimdb_subscribe_request* subscribeRequest = (const zlimdb_subscribe_request*)(const byte_t*)workerJob.getRequestData();
     Table& table = workerJob.getTable();
     HashMap<Table*, Subscription*>::Iterator i = subscriptions.find(&table);
     if(i != subscriptions.end())
