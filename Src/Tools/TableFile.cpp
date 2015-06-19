@@ -483,7 +483,7 @@ bool_t TableFile::update(const DataHeader& data)
     // create copy of uncompressed block
     Buffer uncompressedBlock = this->uncompressedBlock;
 
-    // find and remove entity from copy of uncompressed block
+    // find and update entity from copy of uncompressed block
     if(!updateEntity(data, uncompressedBlock))
       return false;
 
@@ -978,13 +978,17 @@ bool_t TableFile::updateEntity(const DataHeader& data, Buffer& block)
 found:;
 
   // update entity in block
-  size_t entitySize = dataHeader->size;
+  size_t oldEntitySize = dataHeader->size;
   size_t oldBlockSize = block.size();
+  size_t dataPos = (byte_t*)dataHeader - (byte_t*)block;
   block.resize(oldBlockSize + data.size);
-  if(remainingDataSize > entitySize)
-    Memory::move(dataHeader + data.size, (const byte_t*)dataHeader + entitySize, remainingDataSize - entitySize);
+  dataHeader = (DataHeader*)((byte_t*)block + dataPos);
+  if(remainingDataSize > oldEntitySize)
+    Memory::move((byte_t*)dataHeader + data.size, (const byte_t*)dataHeader + oldEntitySize, remainingDataSize - oldEntitySize);
+  timestamp_t timestamp = dataHeader->timestamp;
   Memory::copy(dataHeader, &data, data.size);
-  block.resize(oldBlockSize - entitySize + data.size);
+  dataHeader->timestamp = timestamp;
+  block.resize(oldBlockSize - oldEntitySize + data.size);
   return true;
 }
 
