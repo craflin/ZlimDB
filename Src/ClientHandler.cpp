@@ -216,7 +216,9 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
         entity->id = table->getLastEntityId() + 1;
       if(entity->time == 0)
         entity->time = now;
-      table->setLastEntityId(entity->id);
+      if(entity->id <= table->getLastEntityId() || entity->time < table->getLastEntityTimestamp())
+        return sendErrorResponse(add.header.request_id, zlimdb_error_entity_id);
+      table->setLastEntityId(entity->id, entity->time);
       timestamp_t timeOffset = table->updateTimeOffset(now - entity->time);
 
       // create job to add entity

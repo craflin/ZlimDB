@@ -10,6 +10,7 @@ bool_t Table::open()
   if(!tableFile->open())
     return false;
   lastEntityId = tableFile->getLastId();
+  lastEntityTimestamp = tableFile->getLastTimestamp();
   if(lastEntityId != 0)
   {
     minTimeOffset = tableFile->getTimeOffset();

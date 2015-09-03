@@ -131,14 +131,12 @@ bool_t TableFile::open()
 bool_t TableFile::clear()
 {
   uint64_t lastId = this->lastId;
+  uint64_t lastTimestamp = this->lastTimestamp;
   close();
-  if(!create())
-  {
-    this->lastId = lastId;
-    return false;
-  }
+  bool_t result = create();
   this->lastId = lastId;
-  return true;
+  this->lastTimestamp = lastTimestamp;
+  return result;
 }
 
 bool_t TableFile::copy(const String& dest)

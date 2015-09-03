@@ -15,7 +15,7 @@ class Subscription;
 class Table
 {
 public:
-  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), minTimeOffset(0x7fffffffffffffffLL) {}
+  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), lastEntityTimestamp(0), minTimeOffset(0x7fffffffffffffffLL) {}
   ~Table() {delete tableFile;}
 
   uint32_t getId() const {return id;}
@@ -29,7 +29,8 @@ public:
   const TableFile* getTableFile() const {return tableFile;}
 
   uint64_t getLastEntityId() const {return lastEntityId;}
-  void_t setLastEntityId(uint64_t entityId) {lastEntityId = entityId;}
+  uint64_t getLastEntityTimestamp() const {return lastEntityTimestamp;}
+  void_t setLastEntityId(uint64_t id, uint64_t timestamp) {lastEntityId = id; lastEntityTimestamp = timestamp;}
 
   uint32_t getEntitySize() const;
   void_t getEntity(zlimdb_table_entity& entity) const;
@@ -56,6 +57,7 @@ private:
   WorkerHandler* workerHandler;
   TableFile* tableFile;
   uint64_t lastEntityId;
+  uint64_t lastEntityTimestamp;
   HashSet<Subscription*> subscriptions;
   List<timestamp_t> timeOffsets;
   timestamp_t minTimeOffset;
