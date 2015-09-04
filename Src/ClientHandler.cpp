@@ -357,8 +357,8 @@ void_t ClientHandler::handleSync(const zlimdb_sync_request& sync)
 
       zlimdb_sync_response syncResponse;
       ClientProtocol::setHeader(syncResponse.header, zlimdb_message_sync_response, sizeof(syncResponse), sync.header.request_id);
-      syncResponse.table_time = now;
-      syncResponse.server_time = now + table->getTimeOffset();
+      syncResponse.server_time = now;
+      syncResponse.table_time = now - table->getTimeOffset();
       return sendResponse(syncResponse.header);
     }
   }
