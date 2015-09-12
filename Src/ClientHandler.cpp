@@ -168,7 +168,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
     {
       // get table name
       String tableName;
-      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&add + 1);
+      zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(&add + 1);
       if(!ClientProtocol::getString(add.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
         return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
 
@@ -182,6 +182,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
         return sendResponse(addResponse.header);
       }
       table = &serverHandler.createTable(tableName);
+      tableEntity->entity.id = table->getId();
 
       // create internal job to create the file
       serverHandler.createWorkerJob(*this, *table, &add, add.header.size, 0);
