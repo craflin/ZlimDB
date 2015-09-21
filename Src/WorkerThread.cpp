@@ -10,6 +10,8 @@
 #include "WorkerThread.h"
 #include "WorkerJob.h"
 
+Mutex WorkerThread::directoryMutex;
+
 WorkerThread::WorkerThread(Socket& socket)
 {
   this->socket.swap(socket);
@@ -120,10 +122,18 @@ void_t WorkerThread::handleAdd(const zlimdb_add_request& add)
     {
       const String& tableName = tableFile.getFileName();
       String dir = File::dirname(tableName);
+      bool createResult;
       if(dir != ".")
+      {
+        directoryMutex.lock();
         Directory::create(dir);
+        createResult = tableFile.create();
+        directoryMutex.unlock();
+      }
+      else
+        createResult = tableFile.create();
 
-      if(!tableFile.create())
+      if(!createResult)
         return sendErrorResponse(add.header.request_id, zlimdb_error_open_file);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
@@ -191,6 +201,10 @@ void_t WorkerThread::handleRemove(const zlimdb_remove_request& remove)
       tableFile.close();
       if(!File::unlink(tableFile.getFileName()))
         return sendErrorResponse(remove.header.request_id, zlimdb_error_write_file);
+
+      directoryMutex.lock();
+      Directory::unlinkAll(File::dirname(tableFile.getFileName()));
+      directoryMutex.unlock();
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(zlimdb_header));

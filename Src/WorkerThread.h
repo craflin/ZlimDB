@@ -2,6 +2,7 @@
 #pragma once
 
 #include <nstd/Thread.h>
+#include <nstd/Mutex.h>
 
 #include "Tools/Socket.h"
 #include "Tools/ClientProtocol.h"
@@ -26,6 +27,9 @@ private:
   Socket socket;
   Thread thread;
   WorkerJob* currentWorkerJob;
+
+private:
+  static Mutex directoryMutex;
 
 private:
   static uint_t main(void_t* param);
