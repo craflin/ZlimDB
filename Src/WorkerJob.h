@@ -23,7 +23,7 @@ public:
   Buffer& getResponseData() {return responseBuffer;}
   TableFile& getTableFile() {return tableFile;}
   void_t setParam1(uint64_t param1) {this->param1 = param1;}
-  timestamp_t getParam1() const {return param1;}
+  uint64_t getParam1() const {return param1;}
 
 private:
   bool_t valid;

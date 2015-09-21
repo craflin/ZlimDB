@@ -297,7 +297,7 @@ void_t TableFile::getEmptyCompressedBlock2(uint64_t& nextBlockId, Buffer& data, 
   compressBuffer(emptyBlock, data, dataOffset);
 }
 
-bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
+bool_t TableFile::add(const DataHeader& data, int64_t timeOffset)
 {
   if(data.id <= lastId || data.timestamp < lastTimestamp)
     return lastError = argumentError, false;
@@ -376,7 +376,7 @@ bool_t TableFile::add(const DataHeader& data, timestamp_t timeOffset)
   return lastError = noError, true;
 }
 
-/*private*/ bool_t TableFile::addNewBlock(const DataHeader& data, timestamp_t timeOffset)
+/*private*/ bool_t TableFile::addNewBlock(const DataHeader& data, int64_t timeOffset)
 {
   ASSERT((fileHeader.keyCount + 1) * sizeof(Key) <= fileHeader.keySize);
 
@@ -983,7 +983,7 @@ found:;
   dataHeader = (DataHeader*)((byte_t*)block + dataPos);
   if(remainingDataSize > oldEntitySize)
     Memory::move((byte_t*)dataHeader + data.size, (const byte_t*)dataHeader + oldEntitySize, remainingDataSize - oldEntitySize);
-  timestamp_t timestamp = dataHeader->timestamp;
+  int64_t timestamp = dataHeader->timestamp;
   Memory::copy(dataHeader, &data, data.size);
   dataHeader->timestamp = timestamp;
   block.resize(oldBlockSize - oldEntitySize + data.size);

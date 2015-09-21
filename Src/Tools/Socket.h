@@ -65,7 +65,7 @@ public:
     void_t set(Socket& socket, uint_t events);
     void_t remove(Socket& socket);
 
-    bool_t select(Socket*& socket, uint_t& events, timestamp_t timeout);
+    bool_t select(Socket*& socket, uint_t& events, int64_t timeout);
   private:
     void_t* data;
   };

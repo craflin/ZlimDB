@@ -75,9 +75,9 @@ Server::Client* Server::pair(Socket& socket)
   return &client;
 }
 
-Server::Timer& Server::addTimer(timestamp_t interval)
+Server::Timer& Server::addTimer(int64_t interval)
 {
-  timestamp_t timerTime = Time::time() + interval;
+  int64_t timerTime = Time::time() + interval;
   Timer& timer = *timers.insert(timerTime, Timer(interval));
   return timer;
 }
@@ -93,7 +93,7 @@ bool_t Server::process()
   uint_t selectEvent;
   while(!stopped)
   {
-    timestamp_t timeout = timers.isEmpty() ? 10000 : (timers.begin().key() - Time::time());
+    int64_t timeout = timers.isEmpty() ? 10000 : (timers.begin().key() - Time::time());
     if(timeout > 0)
     {
       if(!selector.select(socket, selectEvent, timeout))
@@ -110,7 +110,7 @@ bool_t Server::process()
     {
       do
       {
-        timestamp_t timerTime = timers.begin().key();
+        int64_t timerTime = timers.begin().key();
         if(timerTime <= Time::time())
         {
           Timer& timer = timers.front();

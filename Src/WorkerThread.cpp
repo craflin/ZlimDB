@@ -138,7 +138,7 @@ void_t WorkerThread::handleAdd(const zlimdb_add_request& add)
       const TableFile::DataHeader* data = (const TableFile::DataHeader*)(&add + 1);
       if(data->size != add.header.size - sizeof(add))
         return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
-      timestamp_t timeOffset = (timestamp_t)currentWorkerJob->getParam1();
+      int64_t timeOffset = (int64_t)currentWorkerJob->getParam1();
       if(!tableFile.add(*data, timeOffset))
         return sendErrorResponse(add.header.request_id, tableFile.getLastError() == TableFile::argumentError ? zlimdb_error_entity_id : zlimdb_error_write_file);
 

@@ -50,19 +50,19 @@ void_t Table::getEntity(zlimdb_table_entity& entity) const
   Memory::copy(&entity + 1, (const char_t*)name, name.length());
 }
 
-timestamp_t Table::updateTimeOffset(timestamp_t timeOffset)
+int64_t Table::updateTimeOffset(int64_t timeOffset)
 {
   if(timeOffset < minTimeOffset)
     minTimeOffset = timeOffset;
   timeOffsets.append(timeOffset);
   while(timeOffsets.size() > 100)
   {
-    timestamp_t removedTimeOffset = timeOffsets.front();
+    int64_t removedTimeOffset = timeOffsets.front();
     timeOffsets.removeFront();
     if(removedTimeOffset <= minTimeOffset && removedTimeOffset < timeOffset)
     {
       minTimeOffset = timeOffsets.front();
-      List<timestamp_t>::Iterator i = timeOffsets.begin(), end = timeOffsets.end();
+      List<int64_t>::Iterator i = timeOffsets.begin(), end = timeOffsets.end();
       for(++i; i != end; ++i)
         if(*i < minTimeOffset)
           minTimeOffset = *i;

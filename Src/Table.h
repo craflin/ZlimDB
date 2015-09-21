@@ -15,7 +15,7 @@ class Subscription;
 class Table
 {
 public:
-  Table(uint32_t id, timestamp_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), lastEntityTimestamp(0), minTimeOffset(0x7fffffffffffffffLL) {}
+  Table(uint32_t id, int64_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), lastEntityTimestamp(0), minTimeOffset(0x7fffffffffffffffLL) {}
   ~Table() {delete tableFile;}
 
   uint32_t getId() const {return id;}
@@ -45,13 +45,13 @@ public:
   void_t removeSubscription(Subscription& subscription) {subscriptions.remove(&subscription);}
   HashSet<Subscription*>& getSubscriptions() {return subscriptions;}
 
-  timestamp_t updateTimeOffset(timestamp_t timeOffset);
-  timestamp_t getTimeOffset() const {return minTimeOffset == 0x7fffffffffffffffLL ? 0 : minTimeOffset;}
+  int64_t updateTimeOffset(int64_t timeOffset);
+  int64_t getTimeOffset() const {return minTimeOffset == 0x7fffffffffffffffLL ? 0 : minTimeOffset;}
 
 private:
   uint32_t id;
   bool valid;
-  timestamp_t time;
+  int64_t time;
   String name;
   HashSet<WorkerJob*> openWorkerJobs;
   WorkerHandler* workerHandler;
@@ -59,6 +59,6 @@ private:
   uint64_t lastEntityId;
   uint64_t lastEntityTimestamp;
   HashSet<Subscription*> subscriptions;
-  List<timestamp_t> timeOffsets;
-  timestamp_t minTimeOffset;
+  List<int64_t> timeOffsets;
+  int64_t minTimeOffset;
 };

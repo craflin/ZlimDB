@@ -204,7 +204,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
       return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_size);
     else
     {
-      timestamp_t now = Time::time();
+      int64_t now = Time::time();
 
       // find table
       Table* table = serverHandler.findTable(add.table_id);
@@ -220,7 +220,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
       if(entity->id <= table->getLastEntityId() || entity->time < table->getLastEntityTimestamp())
         return sendErrorResponse(add.header.request_id, zlimdb_error_entity_id);
       table->setLastEntityId(entity->id, entity->time);
-      timestamp_t timeOffset = table->updateTimeOffset(now - entity->time);
+      int64_t timeOffset = table->updateTimeOffset(now - entity->time);
 
       // create job to add entity
       serverHandler.createWorkerJob(*this, *table, &add, add.header.size, (uint64_t)timeOffset);
@@ -350,7 +350,7 @@ void_t ClientHandler::handleSync(const zlimdb_sync_request& sync)
     }
   default:
     {
-      timestamp_t now = Time::time();
+      int64_t now = Time::time();
 
       Table* table = serverHandler.findTable(sync.table_id);
       if(!table)
