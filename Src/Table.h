@@ -16,7 +16,7 @@ class Table
 {
 public:
   Table(uint32_t id, int64_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), lastEntityTimestamp(0), minTimeOffset(0x7fffffffffffffffLL) {}
-  ~Table() {delete tableFile;}
+  ~Table();
 
   uint32_t getId() const {return id;}
   const String& getName() const {return name;}

@@ -156,6 +156,9 @@ void_t ServerHandler::removeTable(Table& table)
 {
   tables.remove(table.getId());
   tablesByName.remove(table.getName());
+  const HashSet<Subscription*>& subscribtions = table.getSubscriptions();
+  for(HashSet<Subscription*>::Iterator i = subscribtions.begin(), end = subscribtions.end(); i != end; ++i)
+    removeSubscription(**i);
   delete &table;
 }
 

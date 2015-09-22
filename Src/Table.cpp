@@ -5,6 +5,12 @@
 #include "ServerHandler.h"
 #include "WorkerHandler.h"
 
+Table::~Table()
+{
+  ASSERT(subscriptions.isEmpty());
+  delete tableFile;
+}
+
 bool_t Table::open()
 {
   if(!tableFile->open())
