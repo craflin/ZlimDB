@@ -128,6 +128,12 @@ void_t ClientHandler::handleMessage(zlimdb_header& header)
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
     break;
+  case zlimdb_message_control_request:
+    if(header.size >= sizeof(zlimdb_control_request))
+      handleControl((zlimdb_control_request&)header);
+    else
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+    break;
   default:
     sendErrorResponse(header.request_id, zlimdb_error_invalid_message_type);
     break;
@@ -417,6 +423,35 @@ void_t ClientHandler::handleCopy(const zlimdb_copy_request& copy)
     }
     break;
   }
+}
+
+void_t ClientHandler::handleControl(zlimdb_control_request& control)
+{
+  switch(control.table_id)
+  {
+  case zlimdb_table_clients:
+  case zlimdb_table_tables:
+    return sendErrorResponse(control.header.request_id, zlimdb_error_invalid_request);
+  default:
+    {
+      // find table
+      Table* table = serverHandler.findTable(control.table_id);
+      if(!table)
+        return sendErrorResponse(control.header.request_id, zlimdb_error_table_not_found);
+
+      // notify subscribers
+      HashSet<Subscription*>& subscriptions = table->getSubscriptions();
+      control.header.request_id = 0;
+      for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+      {
+        Subscription* subscription = *i;
+        if(subscription->isSynced())
+          subscription->getClientHandler()->client.send((const byte_t*)&control, control.header.size);
+      }
+    }
+    break;
+  }
+
 }
 
 void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_message_type responseType)

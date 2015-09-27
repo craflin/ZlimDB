@@ -62,6 +62,7 @@ private:
   void_t handleClear(zlimdb_clear_request& clear);
   void_t handleFind(zlimdb_find_request& find);
   void_t handleCopy(const zlimdb_copy_request& copy);
+  void_t handleControl(zlimdb_control_request& control);
 
   void_t handleMetaQuery(const zlimdb_query_request& query, zlimdb_message_type responseType);
 
