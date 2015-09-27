@@ -76,7 +76,7 @@ void_t ClientHandler::handleMessage(zlimdb_header& header)
     break;
   case zlimdb_message_update_request:
     if(header.size >= sizeof(zlimdb_update_request))
-      handleUpdate((zlimdb_update_request&)header);
+      handleUpdate((const zlimdb_update_request&)header);
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
     break;
@@ -112,7 +112,7 @@ void_t ClientHandler::handleMessage(zlimdb_header& header)
     break;
   case zlimdb_message_clear_request:
     if(header.size >= sizeof(zlimdb_clear_request))
-      handleClear((zlimdb_clear_request&)header);
+      handleClear((const zlimdb_clear_request&)header);
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
     break;
@@ -224,7 +224,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
   }
 }
 
-void_t ClientHandler::handleUpdate(zlimdb_update_request& update)
+void_t ClientHandler::handleUpdate(const zlimdb_update_request& update)
 {
   switch(update.table_id)
   {
@@ -243,7 +243,7 @@ void_t ClientHandler::handleUpdate(zlimdb_update_request& update)
   }
 }
 
-void_t ClientHandler::handleRemove(zlimdb_remove_request& remove)
+void_t ClientHandler::handleRemove(const zlimdb_remove_request& remove)
 {
   switch(remove.table_id)
   {
@@ -349,7 +349,7 @@ void_t ClientHandler::handleSync(const zlimdb_sync_request& sync)
   }
 }
 
-void_t ClientHandler::handleClear(zlimdb_clear_request& clear)
+void_t ClientHandler::handleClear(const zlimdb_clear_request& clear)
 {
   switch(clear.table_id)
   {
@@ -367,7 +367,7 @@ void_t ClientHandler::handleClear(zlimdb_clear_request& clear)
   }
 }
 
-void_t ClientHandler::handleFind(zlimdb_find_request& find)
+void_t ClientHandler::handleFind(const zlimdb_find_request& find)
 {
   if(find.header.size < sizeof(find) + sizeof(zlimdb_table_entity))
     return sendErrorResponse(find.header.request_id, zlimdb_error_invalid_message_size);

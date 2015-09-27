@@ -53,14 +53,14 @@ private:
   void_t handleLogin(const zlimdb_login_request& login);
   void_t handleAuth(const zlimdb_auth_request& auth);
   void_t handleAdd(zlimdb_add_request& add);
-  void_t handleUpdate(zlimdb_update_request& update);
-  void_t handleRemove(zlimdb_remove_request& remove);
+  void_t handleUpdate(const zlimdb_update_request& update);
+  void_t handleRemove(const zlimdb_remove_request& remove);
   void_t handleSubscribe(const zlimdb_subscribe_request& subscribe);
   void_t handleUnsubscribe(const zlimdb_unsubscribe_request& unsubscribe);
   void_t handleQuery(const zlimdb_query_request& query);
   void_t handleSync(const zlimdb_sync_request& sync);
-  void_t handleClear(zlimdb_clear_request& clear);
-  void_t handleFind(zlimdb_find_request& find);
+  void_t handleClear(const zlimdb_clear_request& clear);
+  void_t handleFind(const zlimdb_find_request& find);
   void_t handleCopy(const zlimdb_copy_request& copy);
   void_t handleControl(zlimdb_control_request& control);
 
