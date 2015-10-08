@@ -481,7 +481,7 @@ void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_
           {
             response->size = pos - start;
             response->flags = zlimdb_header_flag_fragmented;
-            client.send(buffer, response->size);
+            client.send((const byte_t*)response, response->size);
             pos = start;
           }
           table->getEntity(*(zlimdb_table_entity*)pos);
@@ -489,7 +489,7 @@ void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_
         }
         response->size = pos - start + sizeof(zlimdb_header);
         response->flags = 0;
-        client.send(buffer, response->size);
+        client.send((const byte_t*)response, response->size);
       }
       break;
     case zlimdb_query_type_by_id:
@@ -502,7 +502,7 @@ void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_
         zlimdb_table_entity* tableBuf = (zlimdb_table_entity*)((byte_t*)response + sizeof(zlimdb_header));
         ClientProtocol::setHeader(*response, responseType, buffer.size(), query.header.request_id);
         table->getEntity(*tableBuf);
-        client.send(buffer, sizeof(buffer));
+        client.send((const byte_t*)response, response->size);
       }
       break;
     case zlimdb_query_type_since_time:
