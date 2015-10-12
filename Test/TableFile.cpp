@@ -17,20 +17,20 @@ void_t testTableFile()
     ASSERT(file.getLastId() == 0);
     uint64_t blockId;
     Buffer buffer;
-    ASSERT(file.getFirstCompressedBlock(blockId, buffer, 0));
+    ASSERT(file.getFirstCompressedBlock2(blockId, buffer, 0));
     ASSERT(buffer.size() == sizeof(uint16_t));
     ASSERT(*(const uint16_t*)(const byte_t*)buffer == 0);
-    ASSERT(!file.getNextCompressedBlock(blockId, blockId, buffer, 0));
+    ASSERT(!file.getCompressedBlock2(blockId, blockId, buffer, 0));
     ASSERT(file.getTimeOffset() == 0x7fffffffffffffffLL);
     file.close();
     ASSERT(!file.isOpen());
     ASSERT(file.open());
     ASSERT(file.isOpen());
     ASSERT(file.getLastId() == 0);
-    ASSERT(file.getFirstCompressedBlock(blockId, buffer, 0));
+    ASSERT(file.getFirstCompressedBlock2(blockId, buffer, 0));
     ASSERT(buffer.size() == sizeof(uint16_t));
     ASSERT(*(const uint16_t*)(const byte_t*)buffer == 0);
-    ASSERT(!file.getNextCompressedBlock(blockId, blockId, buffer, 0));
+    ASSERT(!file.getCompressedBlock2(blockId, blockId, buffer, 0));
     ASSERT(file.getTimeOffset() == 0x7fffffffffffffffLL);
     file.close();
     ASSERT(File::unlink("test.test"));
@@ -59,7 +59,7 @@ void_t testTableFile()
       uint64_t blockId;
       Buffer compressedBlock;
       byte_t decompressedBuffer[0xffff];
-      VERIFY(file.getFirstCompressedBlock(blockId, compressedBlock, 0));
+      VERIFY(file.getFirstCompressedBlock2(blockId, compressedBlock, 0));
       int_t i = 1;
       uint64_t timestamp = 0;
       for(;;)
@@ -78,7 +78,7 @@ void_t testTableFile()
           timestamp = dataHeader->timestamp;
           ++i;
         }
-        if(!file.getNextCompressedBlock(blockId, blockId, compressedBlock, 0))
+        if(!file.getCompressedBlock2(blockId, blockId, compressedBlock, 0))
           break;
       }
       ASSERT(i == 100000);
@@ -105,10 +105,10 @@ void_t testTableFile()
       ASSERT(file.remove(i));
     uint64_t blockId;
     Buffer buffer;
-    ASSERT(file.getFirstCompressedBlock(blockId, buffer, 0));
+    ASSERT(file.getFirstCompressedBlock2(blockId, buffer, 0));
     ASSERT(buffer.size() == sizeof(uint16_t));
     ASSERT(*(const uint16_t*)(const byte_t*)buffer == 0);
-    ASSERT(!file.getNextCompressedBlock(blockId, blockId, buffer, 0));
+    ASSERT(!file.getCompressedBlock2(blockId, blockId, buffer, 0));
     file.close();
     ASSERT(File::unlink("test.test"));
   }
@@ -131,10 +131,10 @@ void_t testTableFile()
       ASSERT(file.remove(i));
     uint64_t blockId;
     Buffer buffer;
-    ASSERT(file.getFirstCompressedBlock(blockId, buffer, 0));
+    ASSERT(file.getFirstCompressedBlock2(blockId, buffer, 0));
     ASSERT(buffer.size() == sizeof(uint16_t));
     ASSERT(*(const uint16_t*)(const byte_t*)buffer == 0);
-    ASSERT(!file.getNextCompressedBlock(blockId, blockId, buffer, 0));
+    ASSERT(!file.getCompressedBlock2(blockId, blockId, buffer, 0));
     file.close();
     ASSERT(File::unlink("test.test"));
   }
