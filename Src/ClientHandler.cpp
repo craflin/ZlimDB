@@ -616,6 +616,9 @@ void_t ClientHandler::handleInternalLoginResponse(const zlimdb_login_response& l
 
 void_t ClientHandler::handleInternalAddResponse(WorkerJob& workerJob, const zlimdb_add_response& addResponse)
 {
+  // send response to client
+  client.send((const byte_t*)&addResponse, sizeof(addResponse));
+
   // notify subscribers
   zlimdb_add_request* addRequest = (zlimdb_add_request*)(byte_t*)workerJob.getRequestData();
   Table* table = serverHandler.findTable(addRequest->table_id);
@@ -630,13 +633,13 @@ void_t ClientHandler::handleInternalAddResponse(WorkerJob& workerJob, const zlim
           subscription->getClientHandler()->client.send((const byte_t*)addRequest, addRequest->header.size);
       }
   }
-
-  // send response to client
-  client.send((const byte_t*)&addResponse, sizeof(addResponse));
 }
 
 void_t ClientHandler::handleInternalUpdateResponse(WorkerJob& workerJob, const zlimdb_header& updateResponse)
 {
+  // send response to client
+  client.send((const byte_t*)&updateResponse, sizeof(updateResponse));
+
   // notify subscribers
   zlimdb_update_request* updateRequest = (zlimdb_update_request*)(byte_t*)workerJob.getRequestData();
   const zlimdb_entity* entity = (const zlimdb_entity*)(updateRequest + 1);
@@ -652,13 +655,13 @@ void_t ClientHandler::handleInternalUpdateResponse(WorkerJob& workerJob, const z
           subscription->getClientHandler()->client.send((const byte_t*)updateRequest, updateRequest->header.size);
       }
   }
-
-  // send response to client
-  client.send((const byte_t*)&updateResponse, sizeof(updateResponse));
 }
 
 void_t ClientHandler::handleInternalRemoveResponse(WorkerJob& workerJob, const zlimdb_header& removeResponse)
 {
+  // send response to client
+  client.send((const byte_t*)&removeResponse, sizeof(removeResponse));
+
   // notify subscribers
   zlimdb_remove_request* removeRequest = (zlimdb_remove_request*)(byte_t*)workerJob.getRequestData();
   Table* table = serverHandler.findTable(removeRequest->table_id);
@@ -673,13 +676,13 @@ void_t ClientHandler::handleInternalRemoveResponse(WorkerJob& workerJob, const z
           subscription->getClientHandler()->client.send((const byte_t*)removeRequest, removeRequest->header.size);
       }
   }
-
-  // send response to client
-  client.send((const byte_t*)&removeResponse, sizeof(removeResponse));
 }
 
 void_t ClientHandler::handleInternalClearResponse(WorkerJob& workerJob, const zlimdb_header& clearResponse)
 {
+  // send response to client
+  client.send((const byte_t*)&clearResponse, sizeof(clearResponse));
+
   // notify subscribers
   zlimdb_clear_request* clearRequest = (zlimdb_clear_request*)(byte_t*)workerJob.getRequestData();
   Table* table = serverHandler.findTable(clearRequest->table_id);
@@ -693,9 +696,6 @@ void_t ClientHandler::handleInternalClearResponse(WorkerJob& workerJob, const zl
         subscription->getClientHandler()->client.send((const byte_t*)clearRequest, clearRequest->header.size);
       }
   }
-
-  // send response to client
-  client.send((const byte_t*)&clearResponse, sizeof(clearResponse));
 }
 
 void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, zlimdb_header& subscribeResponse)
@@ -757,6 +757,9 @@ void_t ClientHandler::handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_he
         return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_invalid_message_data);
     }
 
+    // send response to client
+    client.send((const byte_t*)&copyResponse, copyResponse.size);
+
     // notify subscribers
     Table* table = serverHandler.findTable(zlimdb_table_tables);
     HashSet<Subscription*>& subscriptions = table->getSubscriptions();
@@ -773,9 +776,6 @@ void_t ClientHandler::handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_he
       if(subscription->isSynced())
         subscription->getClientHandler()->client.send((const byte_t*)addRequest, addRequest->header.size);
     }
-
-    // send response to client
-    client.send((const byte_t*)&copyResponse, copyResponse.size);
   }
 }
 
