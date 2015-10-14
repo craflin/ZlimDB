@@ -203,7 +203,7 @@ void_t WorkerThread::handleRemove(const zlimdb_remove_request& remove)
         return sendErrorResponse(remove.header.request_id, zlimdb_error_write_file);
 
       directoryMutex.lock();
-      Directory::unlinkAll(File::dirname(tableFile.getFileName()));
+      Directory::purge(File::dirname(tableFile.getFileName()));
       directoryMutex.unlock();
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();

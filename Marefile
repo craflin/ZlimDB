@@ -24,11 +24,11 @@ targets = {
   }
   
   UnitTest = cppApplication + {
-    folder = "Tests"
-    dependencies = { "libnstd", "liblz4" }
+    folder = "Test"
+    dependencies = { "libnstd", "liblz4", "libzlimdbclient" }
     includePaths = { "Src", "Ext/libnstd/include", "Ext/lz4", "Ext/libzlimdbclient/include" }
-    libPaths = { "Build/$(configuration)/libnstd", "Build/$(configuration)/liblz4" }
-    libs = { "nstd", "lz4" }
+    libPaths = { "Build/$(configuration)/libnstd", "Build/$(configuration)/liblz4", "Build/$(configuration)/libzlimdbclient"  }
+    libs = { "nstd", "lz4", "zlimdbclient" }
     root = { "Test", "Src" }
     files = {
       "Src/Tools/TableFile.cpp" = cppSource
@@ -38,6 +38,7 @@ targets = {
     }
     if tool == "vcxproj" {
       linkFlags += { "/SUBSYSTEM:CONSOLE" }
+      libs += "ws2_32"
     }
     if platform == "Linux" {
       libs += { "pthread", "rt" }
@@ -47,11 +48,11 @@ targets = {
 
   include "Ext/libnstd/libnstd.mare"
   libnstd += {
-    folder = "Libraries"
+    folder = "Ext"
   }
 
   liblz4 = cppStaticLibrary + {
-    folder = "Libraries"
+    folder = "Ext"
     includePaths = { "Ext/lz4" }
     root = { "Ext/lz4" }
     files = {
@@ -62,6 +63,6 @@ targets = {
 
   include "Ext/libzlimdbclient/libzlimdbclient.mare"
   libzlimdbclient += {
-    folder = "Libraries"
+    folder = "Ext"
   }
 }
