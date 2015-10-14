@@ -60,79 +60,79 @@ void_t ClientHandler::handleMessage(zlimdb_header& header)
     if(header.size >= sizeof(zlimdb_login_request))
       handleLogin((const zlimdb_login_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_auth_request:
     if(header.size >= sizeof(zlimdb_auth_request))
       handleAuth((const zlimdb_auth_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_add_request:
     if(header.size >= sizeof(zlimdb_add_request))
       handleAdd((zlimdb_add_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_update_request:
     if(header.size >= sizeof(zlimdb_update_request))
       handleUpdate((const zlimdb_update_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_remove_request:
     if(header.size >= sizeof(zlimdb_remove_request))
       handleRemove((zlimdb_remove_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_subscribe_request:
     if(header.size >= sizeof(zlimdb_subscribe_request))
       handleSubscribe((const zlimdb_subscribe_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_unsubscribe_request:
     if(header.size >= sizeof(zlimdb_unsubscribe_request))
       handleUnsubscribe((const zlimdb_unsubscribe_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_query_request:
     if(header.size >= sizeof(zlimdb_query_request))
       handleQuery((const zlimdb_query_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_sync_request:
     if(header.size >= sizeof(zlimdb_sync_request))
       handleSync((const zlimdb_sync_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_clear_request:
     if(header.size >= sizeof(zlimdb_clear_request))
       handleClear((const zlimdb_clear_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_find_request:
     if(header.size >= sizeof(zlimdb_find_request))
       handleFind((zlimdb_find_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_copy_request:
     if(header.size >= sizeof(zlimdb_copy_request))
       handleCopy((zlimdb_copy_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   case zlimdb_message_control_request:
     if(header.size >= sizeof(zlimdb_control_request))
       handleControl((zlimdb_control_request&)header);
     else
-      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_size);
+      sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
     break;
   default:
     sendErrorResponse(header.request_id, zlimdb_error_invalid_message_type);
@@ -169,7 +169,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
     return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_request);
   case zlimdb_table_tables:
     if(add.header.size < sizeof(add) + sizeof(zlimdb_table_entity))
-      return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_size);
+      return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
     else
     {
       // get table name
@@ -196,7 +196,7 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
     break;
   default:
     if(add.header.size < sizeof(add) + sizeof(zlimdb_entity))
-      return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_size);
+      return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
     else
     {
       int64_t now = Time::time();
@@ -370,7 +370,7 @@ void_t ClientHandler::handleClear(const zlimdb_clear_request& clear)
 void_t ClientHandler::handleFind(const zlimdb_find_request& find)
 {
   if(find.header.size < sizeof(find) + sizeof(zlimdb_table_entity))
-    return sendErrorResponse(find.header.request_id, zlimdb_error_invalid_message_size);
+    return sendErrorResponse(find.header.request_id, zlimdb_error_invalid_message_data);
   else
   {
     // get table name
@@ -401,7 +401,7 @@ void_t ClientHandler::handleCopy(const zlimdb_copy_request& copy)
     return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_request);
   default:
     if(copy.header.size < sizeof(copy) + sizeof(zlimdb_table_entity))
-      return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_size);
+      return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
     else
     {
       const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&copy + 1);

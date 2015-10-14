@@ -364,7 +364,7 @@ void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
     }
   default:
     if(copy.header.size < sizeof(copy) + sizeof(zlimdb_table_entity))
-      return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_size);
+      return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
     else
     {
       if(currentWorkerJob->getParam1() == 0)
