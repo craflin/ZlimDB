@@ -10,8 +10,8 @@ int_t main(int_t argc, char_t* argv[])
   int64_t startTime = Time::ticks();
   Console::printf(_T("%s\n"), _T("Testing..."));
 
-  testTableFile();
   testClient(argv[0]);
+  testTableFile();
 
   Console::printf(_T("%s (%lld ms)\n"), _T("done"), Time::ticks() - startTime);
   return 0;
