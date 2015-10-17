@@ -52,8 +52,7 @@ void_t Table::getEntity(zlimdb_table_entity& entity) const
   entity.entity.id = id;
   entity.entity.time = time;
   entity.flags = 0;
-  entity.name_size = name.length();
-  Memory::copy(&entity + 1, (const char_t*)name, name.length());
+  ClientProtocol::setString(entity.entity, entity.name_size, sizeof(zlimdb_table_entity), name);
 }
 
 int64_t Table::updateTimeOffset(int64_t timeOffset)
