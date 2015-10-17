@@ -282,7 +282,7 @@ void_t ClientHandler::handleSubscribe(const zlimdb_subscribe_request& subscribe)
   Subscription& subscription = serverHandler.createSubscription(*this, *table);
   if(table->getTableFile())
   {
-    if(table->getLastEntityId() == 0)
+    if(table->getLastEntityId() == 0 || subscribe.type == zlimdb_query_type_none)
     {
       subscription.setSynced();
       return sendOkResponse(zlimdb_message_subscribe_response, subscribe.header.request_id);
