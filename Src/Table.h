@@ -32,8 +32,7 @@ public:
   uint64_t getLastEntityTimestamp() const {return lastEntityTimestamp;}
   void_t setLastEntityId(uint64_t id, uint64_t timestamp) {lastEntityId = id; lastEntityTimestamp = timestamp;}
 
-  uint32_t getEntitySize() const;
-  void_t getEntity(zlimdb_table_entity& entity) const;
+  bool_t copyEntity(zlimdb_table_entity& entity, size_t maxSize) const;
 
   size_t getLoad() const {return openWorkerJobs.size();}
   WorkerHandler* getWorkerHandler() {return workerHandler;}

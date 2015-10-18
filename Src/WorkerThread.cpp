@@ -372,7 +372,7 @@ void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
         const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&copy + 1);
 
         String copyFileName;
-        if(!ClientProtocol::getString(copy.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, copyFileName))
+        if(!ClientProtocol::getString(copy.header, tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, copyFileName))
           return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
 
         const String& fileName = tableFile.getFileName();

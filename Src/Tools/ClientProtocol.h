@@ -6,20 +6,35 @@
 class ClientProtocol
 {
 public:
-  static bool_t getString(const zlimdb_header& header, size_t offset, size_t size, String& result)
+  static bool_t getString(const zlimdb_header& header, size_t offset, size_t length, String& result)
   {
-    if(offset + size > header.size)
+    if(offset + length > header.size)
       return false;
-    result.attach((const char_t*)&header + offset, size);
+    if(!length)
+    {
+      result = String();
+      return true;
+    }
+    char_t* str = (char_t*)&header + offset;
+    str[--length] = '\0';
+    result.attach(str, length);
     return true;
   }
 
-  static bool_t getString(const zlimdb_header& header, const zlimdb_entity& entity, size_t offset, size_t size, String& result)
+  static bool_t getString(const zlimdb_header& header, const zlimdb_entity& entity, size_t offset, size_t length, String& result)
   {
-    size_t strEnd = offset + size;
-    if(strEnd > entity.size || (const byte_t*)&entity + strEnd > (const byte_t*)&header + header.size)
+    if(offset + length > entity.size)
       return false;
-    result.attach((const char_t*)&entity + offset, size);
+    if((const byte_t*)&entity + offset + length > (const byte_t*)&header + header.size)
+      return false;
+    if(!length)
+    {
+      result = String();
+      return true;
+    }
+    char_t* str = (char_t*)&entity + offset;
+    str[--length] = '\0';
+    result.attach(str, length);
     return true;
   }
 
@@ -38,9 +53,13 @@ public:
     entity.size = size;
   }
 
-  static void_t setString(zlimdb_entity& entity, uint16_t& length, size_t offset, const String& str)
+  static bool_t copyString(zlimdb_entity& entity, uint16_t& length, size_t offset, const String& str, size_t maxSize)
   {
-    length = str.length();
-    Memory::copy((byte_t*)&entity + offset, (const char_t*)str, str.length());
+    length = str.length() + 1;
+    if((size_t)entity.size + length > maxSize)
+      return false;
+    Memory::copy((byte_t*)&entity + offset, (const char_t*)str, length);
+    entity.size += length;
+    return true;
   }
 };

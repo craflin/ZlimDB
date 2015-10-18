@@ -33,7 +33,6 @@ public:
   void_t removeSubscription(Subscription& subscription);
 
 private:
-  static Buffer buffer;
   byte_t signature[32];
 
 private:

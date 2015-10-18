@@ -1,6 +1,7 @@
 
 #include <nstd/Time.h>
 #include <nstd/Math.h>
+#include <nstd/Debug.h>
 
 #include "ClientHandler.h"
 #include "ServerHandler.h"
@@ -9,8 +10,6 @@
 #include "WorkerThread.h"
 #include "Table.h"
 #include "Subscription.h"
-
-Buffer ClientHandler::buffer;
 
 ClientHandler::~ClientHandler()
 {
@@ -464,31 +463,32 @@ void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_
     case zlimdb_query_type_all:
       {
         const HashMap<uint32_t, Table*>& tables = serverHandler.getTables();
-        buffer.resize(4096);
-        zlimdb_header* response = (zlimdb_header*)(byte_t*)buffer;
-        response->message_type = responseType;
-        response->request_id = query.header.request_id;
-        byte_t* start;
-        byte_t* pos = start = (byte_t*)response + sizeof(zlimdb_header);
+        byte_t buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+        zlimdb_header* response = (zlimdb_header*)buffer;
+        ClientProtocol::setHeader(*response, responseType, sizeof(zlimdb_header), query.header.request_id);
+        byte_t* pos = (byte_t*)(response + 1);
         for(HashMap<uint32_t, Table*>::Iterator i = tables.begin(), end = tables.end(); i != end; ++i)
         {
           const Table* table = *i;
           if(!table->getTableFile())
             continue;
-          uint32_t entitySize = table->getEntitySize();
-          uint32_t reqBufferSize = pos + entitySize - start;
-          if(reqBufferSize > buffer.size())
+          for(;;)
           {
-            response->size = pos - start;
-            response->flags = zlimdb_header_flag_fragmented;
-            client.send((const byte_t*)response, response->size);
-            pos = start;
+            if(pos - buffer > sizeof(ZLIMDB_MAX_MESSAGE_SIZE) - sizeof(zlimdb_table_entity) ||
+              !table->copyEntity(*(zlimdb_table_entity*)pos, sizeof(ZLIMDB_MAX_MESSAGE_SIZE) - (pos - buffer)))
+            {
+              response->flags = zlimdb_header_flag_fragmented;
+              response->size = pos - buffer;
+              client.send((const byte_t*)response, response->size);
+              pos = (byte_t*)(response + 1);
+              continue;
+            }
+            break;
           }
-          table->getEntity(*(zlimdb_table_entity*)pos);
-          pos += entitySize;
+          pos += ((zlimdb_table_entity*)pos)->entity.size;
         }
-        response->size = pos - start + sizeof(zlimdb_header);
         response->flags = 0;
+        response->size = pos - buffer;
         client.send((const byte_t*)response, response->size);
       }
       break;
@@ -497,11 +497,12 @@ void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_
         const Table* table = serverHandler.findTable((uint32_t)query.param);
         if(!table)
           return sendErrorResponse(query.header.request_id, zlimdb_error_entity_not_found);
-        buffer.resize(sizeof(zlimdb_header) + table->getEntitySize());
-        zlimdb_header* response = (zlimdb_header*)(byte_t*)buffer;
-        zlimdb_table_entity* tableBuf = (zlimdb_table_entity*)((byte_t*)response + sizeof(zlimdb_header));
-        ClientProtocol::setHeader(*response, responseType, buffer.size(), query.header.request_id);
-        table->getEntity(*tableBuf);
+        byte_t buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+        zlimdb_header* response = (zlimdb_header*)buffer;
+        ClientProtocol::setHeader(*response, responseType, sizeof(zlimdb_header), query.header.request_id);
+        zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(response + 1);
+        ASSERT(table->copyEntity(*tableEntity, ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_header)));
+        response->size += tableEntity->entity.size;
         client.send((const byte_t*)response, response->size);
       }
       break;
@@ -762,14 +763,14 @@ void_t ClientHandler::handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_he
 
     // notify subscribers
     Table* table = serverHandler.findTable(zlimdb_table_tables);
+    Table& newTable = workerJob.getTable();
     HashSet<Subscription*>& subscriptions = table->getSubscriptions();
-    Buffer buffer;
-    buffer.resize(sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + newTableName.length());
-    zlimdb_add_request* addRequest = (zlimdb_add_request*)(byte_t*)buffer;
-    ClientProtocol::setHeader(addRequest->header, zlimdb_message_add_request, buffer.size(), 0);
+    byte_t buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+    zlimdb_add_request* addRequest = (zlimdb_add_request*)buffer;
+    ClientProtocol::setHeader(addRequest->header, zlimdb_message_add_request, sizeof(zlimdb_add_request), 0);
     zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(addRequest + 1);
-    ClientProtocol::setEntityHeader(tableEntity->entity, table->getId(), Time::time(), sizeof(zlimdb_table_entity) + newTableName.length());
-    ClientProtocol::setString(tableEntity->entity, tableEntity->name_size, sizeof(zlimdb_table_entity), newTableName);
+    ASSERT(newTable.copyEntity(*tableEntity, ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_add_request)));
+    addRequest->header.size += tableEntity->entity.size;
     for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
     {
       Subscription* subscription = *i;

@@ -41,18 +41,11 @@ bool_t Table::create(const zlimdb_entity* entity)
   return true;
 }
 
-uint32_t Table::getEntitySize() const
+bool_t Table::copyEntity(zlimdb_table_entity& entity, size_t maxSize) const
 {
-  return sizeof(zlimdb_table_entity) + name.length();
-}
-
-void_t Table::getEntity(zlimdb_table_entity& entity) const
-{
-  entity.entity.size = sizeof(zlimdb_table_entity) + name.length();
-  entity.entity.id = id;
-  entity.entity.time = time;
+  ClientProtocol::setEntityHeader(entity.entity, id, time, sizeof(zlimdb_table_entity));
   entity.flags = 0;
-  ClientProtocol::setString(entity.entity, entity.name_size, sizeof(zlimdb_table_entity), name);
+  return ClientProtocol::copyString(entity.entity, entity.name_size, sizeof(zlimdb_table_entity), name, maxSize);
 }
 
 int64_t Table::updateTimeOffset(int64_t timeOffset)

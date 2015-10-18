@@ -38,7 +38,7 @@ bool_t ServerHandler::loadTables(const String& path)
   {
     String tableName("users/root/user");
     zlimdb_user_entity user;
-    ClientProtocol::setEntityHeader(user.entity, 1, Time::time(), sizeof(user));
+    ClientProtocol::setEntityHeader(user.entity, 1, Time::time(), sizeof(zlimdb_user_entity));
     for(uint16_t* i = (uint16_t*)user.pw_salt, * end = (uint16_t*)(user.pw_salt + sizeof(user.pw_salt)); i < end; ++i)
       *i = Math::random();
     Sha256::hmac(user.pw_salt, sizeof(user.pw_salt), (const byte_t*)"root", 4, user.pw_hash);
