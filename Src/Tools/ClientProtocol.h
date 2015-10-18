@@ -21,11 +21,9 @@ public:
     return true;
   }
 
-  static bool_t getString(const zlimdb_header& header, const zlimdb_entity& entity, size_t offset, size_t length, String& result)
+  static bool_t getString(const zlimdb_entity& entity, size_t offset, size_t length, String& result)
   {
     if(offset + length > entity.size)
-      return false;
-    if((const byte_t*)&entity + offset + length > (const byte_t*)&header + header.size)
       return false;
     if(!length)
     {
@@ -36,6 +34,26 @@ public:
     str[--length] = '\0';
     result.attach(str, length);
     return true;
+  }
+
+  static const zlimdb_entity* getEntity(const zlimdb_header& header, size_t offset, size_t minSize)
+  {
+    if(offset + minSize > header.size)
+      return 0;
+    const zlimdb_entity* result = (const zlimdb_entity*)((const byte_t*)&header + offset);
+    if(result->size < minSize || offset + result->size > header.size)
+      return 0;
+    return result;
+  }
+
+  static zlimdb_entity* getEntity(zlimdb_header& header, size_t offset, size_t minSize)
+  {
+    if(offset + minSize > header.size)
+      return 0;
+    zlimdb_entity* result = (zlimdb_entity*)((byte_t*)&header + offset);
+    if(result->size < minSize || offset + result->size > header.size)
+      return 0;
+    return result;
   }
 
   static void_t setHeader(zlimdb_header& header, zlimdb_message_type type, size_t size, uint32_t requestId, uint8_t flags = 0)

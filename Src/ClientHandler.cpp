@@ -37,7 +37,7 @@ size_t ClientHandler::handle(byte_t* data, size_t size)
     if(size < sizeof(zlimdb_header))
       break;
     zlimdb_header* header = (zlimdb_header*)pos;
-    if(header->size < sizeof(zlimdb_header) || header->size >= sizeof(zlimdb_add_request) + 0xffff)
+    if(header->size < sizeof(zlimdb_header) || header->size > ZLIMDB_MAX_MESSAGE_SIZE)
     {
       client.close();
       return 0;
@@ -167,14 +167,12 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
   case zlimdb_table_clients:
     return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_request);
   case zlimdb_table_tables:
-    if(add.header.size < sizeof(add) + sizeof(zlimdb_table_entity))
-      return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
-    else
     {
       // get table name
       String tableName;
-      zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(&add + 1);
-      if(!ClientProtocol::getString(add.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
+      zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)ClientProtocol::getEntity(add.header, sizeof(zlimdb_add_request), sizeof(zlimdb_table_entity));
+      if(!tableEntity ||
+         !ClientProtocol::getString(tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
         return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
 
       // create table without opening the file
@@ -194,11 +192,13 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
     }
     break;
   default:
-    if(add.header.size < sizeof(add) + sizeof(zlimdb_entity))
-      return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
-    else
     {
       int64_t now = Time::time();
+
+      // get entity
+      zlimdb_entity* entity = ClientProtocol::getEntity(add.header, sizeof(zlimdb_add_request), sizeof(zlimdb_entity));
+      if(!entity)
+        return sendErrorResponse(add.header.request_id, zlimdb_error_invalid_message_data);
 
       // find table
       Table* table = serverHandler.findTable(add.table_id);
@@ -206,7 +206,6 @@ void_t ClientHandler::handleAdd(zlimdb_add_request& add)
         return sendErrorResponse(add.header.request_id, zlimdb_error_table_not_found);
 
       // create id and timestamp?
-      zlimdb_entity* entity = (zlimdb_entity*)(&add + 1);
       if(entity->id == 0)
         entity->id = table->getLastEntityId() + 1;
       if(entity->time == 0)
@@ -232,10 +231,17 @@ void_t ClientHandler::handleUpdate(const zlimdb_update_request& update)
     return sendErrorResponse(update.header.request_id, zlimdb_error_invalid_request);
   default:
     {
+      // check entiy data
+      const zlimdb_entity* entity = ClientProtocol::getEntity(update.header, sizeof(zlimdb_update_request), sizeof(zlimdb_entity));
+      if(!entity)
+        return sendErrorResponse(update.header.request_id, zlimdb_error_invalid_message_data);
+
+      // find table
       Table* table = serverHandler.findTable(update.table_id);
       if(!table)
         return sendErrorResponse(update.header.request_id, zlimdb_error_table_not_found);
 
+      // create job to update entity in table file
       serverHandler.createWorkerJob(*this, *table, &update, update.header.size, 0);
     }
     break;
@@ -368,27 +374,23 @@ void_t ClientHandler::handleClear(const zlimdb_clear_request& clear)
 
 void_t ClientHandler::handleFind(const zlimdb_find_request& find)
 {
-  if(find.header.size < sizeof(find) + sizeof(zlimdb_table_entity))
+  // get table name
+  String tableName;
+  const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)ClientProtocol::getEntity(find.header, sizeof(zlimdb_find_request), sizeof(zlimdb_table_entity));
+  if(!tableEntity ||
+     !ClientProtocol::getString(tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, tableName))
     return sendErrorResponse(find.header.request_id, zlimdb_error_invalid_message_data);
-  else
-  {
-    // get table name
-    String tableName;
-    const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&find + 1);
-    if(!ClientProtocol::getString(find.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, tableName))
-      return sendErrorResponse(find.header.request_id, zlimdb_error_invalid_message_data);
 
-    // find table
-    Table* table = serverHandler.findTable(tableName);
-    if(!table)
-      return sendErrorResponse(find.header.request_id, zlimdb_error_table_not_found);
+  // find table
+  Table* table = serverHandler.findTable(tableName);
+  if(!table)
+    return sendErrorResponse(find.header.request_id, zlimdb_error_table_not_found);
 
-    // send response
-    zlimdb_find_response findResponse;
-    ClientProtocol::setHeader(findResponse.header, zlimdb_message_find_response, sizeof(findResponse), find.header.request_id);
-    findResponse.id = table->getId();
-    return sendResponse(findResponse.header);
-  }
+  // send response
+  zlimdb_find_response findResponse;
+  ClientProtocol::setHeader(findResponse.header, zlimdb_message_find_response, sizeof(findResponse), find.header.request_id);
+  findResponse.id = table->getId();
+  return sendResponse(findResponse.header);
 }
 
 void_t ClientHandler::handleCopy(const zlimdb_copy_request& copy)
@@ -399,11 +401,12 @@ void_t ClientHandler::handleCopy(const zlimdb_copy_request& copy)
   case zlimdb_table_tables:
     return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_request);
   default:
-    if(copy.header.size < sizeof(copy) + sizeof(zlimdb_table_entity))
-      return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
-    else
     {
-      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&copy + 1);
+      String newTableName;
+      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)ClientProtocol::getEntity(copy.header, sizeof(zlimdb_find_request), sizeof(zlimdb_table_entity));
+      if(!tableEntity ||
+         !ClientProtocol::getString(tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, newTableName))
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
 
       // find source table
       Table* table = serverHandler.findTable(copy.table_id);
@@ -411,9 +414,6 @@ void_t ClientHandler::handleCopy(const zlimdb_copy_request& copy)
         return sendErrorResponse(copy.header.request_id, zlimdb_error_table_not_found);
 
       // check if destination table does already exist
-      String newTableName;
-      if(!ClientProtocol::getString(copy.header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, newTableName))
-        return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
       if(serverHandler.findTable(newTableName))
         return sendErrorResponse(copy.header.request_id, zlimdb_error_table_already_exists);
 
@@ -733,7 +733,7 @@ void_t ClientHandler::handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_he
     String newTableName;
     {
       const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(copyRequest + 1);
-      if(!ClientProtocol::getString(copyRequest->header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, newTableName))
+      if(!ClientProtocol::getString(tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, newTableName))
         return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_invalid_message_data);
       if(serverHandler.findTable(newTableName))
         return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_table_already_exists);
@@ -754,7 +754,7 @@ void_t ClientHandler::handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_he
     String newTableName;
     {
       const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(copyRequest + 1);
-      if(!ClientProtocol::getString(copyRequest->header, tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, newTableName))
+      if(!ClientProtocol::getString(tableEntity->entity, sizeof(*tableEntity), tableEntity->name_size, newTableName))
         return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_invalid_message_data);
     }
 
