@@ -13,6 +13,7 @@ void_t testClient(const char_t* argv0)
   if(!File::isAbsolutePath(binDir))
     binDir = Directory::getCurrent() + "/" + binDir;
   Directory::unlink(binDir + "/TestData", true);
+  ASSERT(!File::exists(binDir + "/TestData"));
   Process zlimdbServer;
   ASSERT(zlimdbServer.start(binDir + "/../zlimdb/zlimdb.exe -c " + binDir + "/TestData") != 0);
 
@@ -51,6 +52,7 @@ void_t testClient(const char_t* argv0)
     uint32_t tableId2;
     ASSERT(zlimdb_add_table(zdb, "TestTable3", &tableId2) == 0);
     ASSERT(tableId2 != 0);
+    ASSERT(tableId2 != tableId);
 
     char_t data[577];
     zlimdb_entity* entity = (zlimdb_entity*)data;
@@ -73,11 +75,15 @@ void_t testClient(const char_t* argv0)
     for(int i = 0; i < 2; ++i)
     {
       char_t buffer[ZLIMDB_MAX_MESSAGE_SIZE];
-      uint32_t size = sizeof(buffer);
       int j = 0;
-      for(void_t* data; zlimdb_get_response(zdb, data = buffer, &size) == 0; size = sizeof(buffer))
-        for(const zlimdb_entity* entity; entity = (const zlimdb_entity*)zlimdb_get_entity(sizeof(zlimdb_entity), &data, &size);)
+      uint64_t lastId2 = 0;
+      while(zlimdb_get_response(zdb, (zlimdb_header*)buffer, sizeof(buffer)) == 0)
+        for(const zlimdb_entity* entity = zlimdb_get_first_entity((zlimdb_header*)buffer, sizeof(zlimdb_entity)); entity; entity = zlimdb_get_next_entity((zlimdb_header*)buffer, sizeof(zlimdb_entity), entity))
+        {
+          ASSERT(entity->id > lastId2);
+          lastId2 = entity->id;
           ++j;
+        }
       ASSERT(zlimdb_errno() == 0);
       ASSERT(j == 10000);
     }

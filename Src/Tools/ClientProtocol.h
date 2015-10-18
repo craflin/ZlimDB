@@ -8,30 +8,22 @@ class ClientProtocol
 public:
   static bool_t getString(const zlimdb_header& header, size_t offset, size_t length, String& result)
   {
-    if(offset + length > header.size)
+    if(!length || offset + length > header.size)
       return false;
-    if(!length)
-    {
-      result = String();
-      return true;
-    }
     char_t* str = (char_t*)&header + offset;
-    str[--length] = '\0';
+    if(str[--length])
+      return false;
     result.attach(str, length);
     return true;
   }
 
   static bool_t getString(const zlimdb_entity& entity, size_t offset, size_t length, String& result)
   {
-    if(offset + length > entity.size)
+    if(!length || offset + length > entity.size)
       return false;
-    if(!length)
-    {
-      result = String();
-      return true;
-    }
     char_t* str = (char_t*)&entity + offset;
-    str[--length] = '\0';
+    if(str[--length])
+      return false;
     result.attach(str, length);
     return true;
   }
