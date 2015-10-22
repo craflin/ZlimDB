@@ -45,7 +45,7 @@ bool_t Table::copyEntity(zlimdb_table_entity& entity, size_t maxSize) const
 {
   ClientProtocol::setEntityHeader(entity.entity, id, time, sizeof(zlimdb_table_entity));
   entity.flags = 0;
-  return ClientProtocol::copyString(entity.entity, entity.name_size, sizeof(zlimdb_table_entity), name, maxSize);
+  return ClientProtocol::copyString(entity.entity, entity.name_size, name, maxSize);
 }
 
 int64_t Table::updateTimeOffset(int64_t timeOffset)

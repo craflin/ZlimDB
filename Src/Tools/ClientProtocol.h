@@ -63,12 +63,12 @@ public:
     entity.size = size;
   }
 
-  static bool_t copyString(zlimdb_entity& entity, uint16_t& length, size_t offset, const String& str, size_t maxSize)
+  static bool_t copyString(zlimdb_entity& entity, uint16_t& length, const String& str, size_t maxSize)
   {
     length = str.length() + 1;
-    if(offset + length > maxSize)
+    if((size_t)entity.size + length > maxSize)
       return false;
-    Memory::copy((byte_t*)&entity + offset, (const char_t*)str, length);
+    Memory::copy((byte_t*)&entity + entity.size, (const char_t*)str, length);
     entity.size += length;
     return true;
   }
