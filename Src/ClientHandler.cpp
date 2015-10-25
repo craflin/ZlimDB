@@ -507,8 +507,9 @@ void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_
       }
       break;
     case zlimdb_query_type_since_time:
-      return sendErrorResponse(query.header.request_id, zlimdb_error_not_implemented);
     case zlimdb_query_type_since_id:
+    case zlimdb_query_type_last:
+    case zlimdb_query_type_none:
       return sendErrorResponse(query.header.request_id, zlimdb_error_not_implemented);
     default:
       return sendErrorResponse(query.header.request_id, zlimdb_error_invalid_request);
