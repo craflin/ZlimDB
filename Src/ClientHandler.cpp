@@ -287,7 +287,7 @@ void_t ClientHandler::handleSubscribe(const zlimdb_subscribe_request& subscribe)
   Subscription& subscription = serverHandler.createSubscription(*this, *table);
   if(table->getTableFile())
   {
-    if(table->getLastEntityId() == 0 || subscribe.type == zlimdb_query_type_none)
+    if(table->getLastEntityId() == 0 || subscribe.type == zlimdb_query_type_since_next)
     {
       subscription.setSynced();
       return sendOkResponse(zlimdb_message_subscribe_response, subscribe.header.request_id);
@@ -508,8 +508,8 @@ void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_
       break;
     case zlimdb_query_type_since_time:
     case zlimdb_query_type_since_id:
-    case zlimdb_query_type_last:
-    case zlimdb_query_type_none:
+    case zlimdb_query_type_since_last:
+    case zlimdb_query_type_since_next:
       return sendErrorResponse(query.header.request_id, zlimdb_error_not_implemented);
     default:
       return sendErrorResponse(query.header.request_id, zlimdb_error_invalid_request);
@@ -711,7 +711,8 @@ void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, zlim
     {
       Subscription* subscription = *i;
       uint64_t lastReplayedEntityId = workerJob.getParam1();
-      if(lastReplayedEntityId != table.getLastEntityId())
+      const zlimdb_subscribe_request* request = (const zlimdb_subscribe_request*)(const byte_t*)workerJob.getRequestData();
+      if(lastReplayedEntityId != table.getLastEntityId() && request->type != zlimdb_query_type_by_id)
       {
         subscribeResponse.flags |= zlimdb_header_flag_fragmented;
         subscription->setMaxEntityId(lastReplayedEntityId);

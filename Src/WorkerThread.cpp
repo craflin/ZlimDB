@@ -268,9 +268,8 @@ void_t WorkerThread::handleQueryOrSubscribe(const zlimdb_query_request& query, z
       break;
     }
   case zlimdb_query_type_by_id:
-  case zlimdb_query_type_last:
     {
-      if(!tableFile.get(query.type == zlimdb_query_type_by_id ? query.param : tableFile.getLastId(), responseBuffer, sizeof(zlimdb_header)))
+      if(!tableFile.get(query.param, responseBuffer, sizeof(zlimdb_header)))
         return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       response->flags = 0;
@@ -279,10 +278,11 @@ void_t WorkerThread::handleQueryOrSubscribe(const zlimdb_query_request& query, z
       response->size = responseBuffer.size();
       break;
     }
+  case zlimdb_query_type_since_last:
   case zlimdb_query_type_since_id:
     {
       uint64_t nextBlockId;
-      if(!tableFile.getCompressedBlock2(currentWorkerJob->getParam1() == 0 ? query.param : (currentWorkerJob->getParam1() + 1), nextBlockId, responseBuffer, sizeof(zlimdb_header)))
+      if(!tableFile.getCompressedBlock2(currentWorkerJob->getParam1() == 0 ? (query.type == zlimdb_query_type_since_last ? tableFile.getLastId() : query.param) : (currentWorkerJob->getParam1() + 1), nextBlockId, responseBuffer, sizeof(zlimdb_header)))
         return sendErrorResponse(query.header.request_id, tableFile.getLastError() == TableFile::notFoundError ? zlimdb_error_entity_not_found : zlimdb_error_read_file);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       response->flags = zlimdb_header_flag_compressed;
