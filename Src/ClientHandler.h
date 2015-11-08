@@ -12,12 +12,18 @@ class ServerHandler;
 class WorkerJob;
 class Subscription;
 class Table;
+class ControlJob;
 
 class ClientHandler : public Server::Client::Listener
 {
 public:
-  ClientHandler(ServerHandler& serverHandler, Server::Client& client) : serverHandler(serverHandler), client(client), suspended(false) {}
+  ClientHandler(ServerHandler& serverHandler, Server::Client& client) : serverHandler(serverHandler), client(client), valid(true), suspended(false) {}
   ~ClientHandler();
+
+  bool_t isValid() const {return valid;}
+  void_t invalidate() {valid = false;}
+
+  size_t getLoad() const {return openWorkerJobs.size();}
 
   void_t addWorkerJob(WorkerJob& workerJob) {openWorkerJobs.append(&workerJob);}
   void_t suspendWorkerJob(WorkerJob& workerJob) {suspendedWorkerJobs.append(&workerJob);}
@@ -32,16 +38,23 @@ public:
   void_t addSubscription(Subscription& subscription);
   void_t removeSubscription(Subscription& subscription);
 
+  void_t addControlJob(ControlJob& controlJob) {openControlJobs.append(&controlJob);}
+  void_t removeControlJob(ControlJob& controlJob) {openControlJobs.remove(&controlJob);}
+
+  void_t sendErrorResponse(uint32_t requestId, zlimdb_message_error error);
+
 private:
   byte_t signature[32];
 
 private:
   ServerHandler& serverHandler;
   Server::Client& client;
+  bool_t valid;
   HashSet<WorkerJob*> openWorkerJobs;
   HashSet<WorkerJob*> suspendedWorkerJobs;
   bool_t suspended;
   HashMap<Table*, Subscription*> subscriptions;
+  HashSet<ControlJob*> openControlJobs;
 
 private: // Server::Client::Listener
   virtual size_t handle(byte_t* data, size_t size);
@@ -62,6 +75,7 @@ private:
   void_t handleFind(const zlimdb_find_request& find);
   void_t handleCopy(const zlimdb_copy_request& copy);
   void_t handleControl(zlimdb_control_request& control);
+  void_t handleControlResponse(const zlimdb_header& response);
 
   void_t handleMetaQuery(const zlimdb_query_request& query, zlimdb_message_type responseType);
 
@@ -74,7 +88,6 @@ private:
   void_t handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_header& copyResponse);
   void_t handleInternalErrorResponse(WorkerJob& workerJob, const zlimdb_error_response& errorResponse);
 
-  void_t sendErrorResponse(uint32_t requestId, zlimdb_message_error error);
   void_t sendOkResponse(zlimdb_message_type type,uint32_t requestId);
   void_t sendResponse(zlimdb_header& header);
 };

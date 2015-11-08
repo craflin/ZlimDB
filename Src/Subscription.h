@@ -9,10 +9,9 @@ class Table;
 class Subscription
 {
 public:
-  Subscription(ClientHandler& clientHandler, Table& table) : synched(false), maxEntityId(0), clientHandler(&clientHandler), table(table) {}
+  Subscription(ClientHandler& clientHandler, Table& table) : synched(false), maxEntityId(0), clientHandler(clientHandler), table(table) {}
 
-  void_t detachClientHandler() {clientHandler = 0;}
-  ClientHandler* getClientHandler() {return clientHandler;}
+  ClientHandler& getClientHandler() {return clientHandler;}
   Table& getTable() {return table;}
 
   void_t setSynced() {synched = true;}
@@ -23,6 +22,6 @@ public:
 private:
   bool_t synched;
   uint64_t maxEntityId;
-  ClientHandler* clientHandler;
+  ClientHandler& clientHandler;
   Table& table;
 };

@@ -12,8 +12,10 @@
 #include "WorkerThread.h"
 #include "Table.h"
 #include "Subscription.h"
+#include "ControlJob.h"
+#include "WorkerJob.h"
 
-ServerHandler::ServerHandler(Server& server) : server(server), nextTableId(100) {}
+ServerHandler::ServerHandler(Server& server) : server(server), nextTableId(100), nextControlRequestId(1) {}
 
 ServerHandler::~ServerHandler()
 {
@@ -25,11 +27,13 @@ ServerHandler::~ServerHandler()
     delete *i;
   for(HashMap<uint32_t, Table*>::Iterator i = tables.begin(), end = tables.end(); i != end; ++i)
     delete *i;
+  for(HashMap<uint32_t, ControlJob*>::Iterator i = controlJobs.begin(), end = controlJobs.end(); i != end; ++i)
+    delete *i;
 }
 
 bool_t ServerHandler::loadTables(const String& path)
 {
-  tables.append(zlimdb_table_tables, new Table(zlimdb_table_tables, 0, String()));
+  tables.append(zlimdb_table_tables, new Table(*this, zlimdb_table_tables, 0, String()));
 
   if(!loadDirectory(path))
     return false;
@@ -76,7 +80,7 @@ bool_t ServerHandler::loadTable(const String& path)
   File::Time fileTime;
   if(!File::time(path, fileTime))
     return false;
-  Table* table = new Table(id, fileTime.creationTime, path);
+  Table* table = new Table(*this, id, fileTime.creationTime, path);
   if(!table->open())
   {
     delete table;
@@ -146,7 +150,7 @@ void_t ServerHandler::increaseWorkerHandlerRank(WorkerHandler& workerHandler)
 Table& ServerHandler::createTable(const String& name)
 {
   uint32_t id = nextTableId++;
-  Table* table = new Table(id, Time::time(), name);
+  Table* table = new Table(*this, id, Time::time(), name);
   tables.append(id, table);
   tablesByName.append(table->getName(), table);
   return *table;
@@ -156,9 +160,6 @@ void_t ServerHandler::removeTable(Table& table)
 {
   tables.remove(table.getId());
   tablesByName.remove(table.getName());
-  const HashSet<Subscription*>& subscribtions = table.getSubscriptions();
-  for(HashSet<Subscription*>::Iterator i = subscribtions.begin(), end = subscribtions.end(); i != end; ++i)
-    removeSubscription(**i);
   delete &table;
 }
 
@@ -192,17 +193,30 @@ void_t ServerHandler::closedClient(Server::Client& client)
     HashSet<ClientHandler*>::Iterator it = clientHandlers.find(clientHandler);
     if(it != clientHandlers.end())
     {
-      clientHandlers.remove(it);
-      delete clientHandler;
+      if(clientHandler->getLoad() == 0)
+        removeClient(*clientHandler);
+      else
+        clientHandler->invalidate();
       return;
     }
   }
-  WorkerHandler* workerHandler = (WorkerHandler*)client.getListener();
-  HashMap<WorkerHandler*, WorkerThread*>::Iterator it = workerThreads.find(workerHandler);
-  delete *it;
-  workerThreads.remove(it);
-  workerHandlers.remove(workerHandler);
-  delete workerHandler;
+  {
+    WorkerHandler* workerHandler = (WorkerHandler*)client.getListener();
+    HashMap<WorkerHandler*, WorkerThread*>::Iterator it = workerThreads.find(workerHandler);
+    if(it != workerThreads.end())
+    {
+      delete *it;
+      workerThreads.remove(it);
+      workerHandlers.remove(workerHandler);
+      delete workerHandler;
+    }
+  }
+}
+
+void_t ServerHandler::removeClient(ClientHandler& clientHandler)
+{
+  clientHandlers.remove(&clientHandler);
+  delete &clientHandler;
 }
 
 WorkerJob& ServerHandler::createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size, uint64_t param1)
@@ -230,11 +244,10 @@ WorkerJob& ServerHandler::createWorkerJob(ClientHandler& clientHandler, Table& t
 void_t ServerHandler::removeWorkerJob(WorkerJob& workerJob)
 {
   Table& table = workerJob.getTable();
-  ClientHandler* clientHandler = workerJob.getClientHandler();
+  ClientHandler& clientHandler = workerJob.getClientHandler();
   WorkerHandler& workerHandler = *table.getWorkerHandler();
   table.removeWorkerJob(workerJob);
-  if(clientHandler)
-    clientHandler->removeWorkerJob(workerJob);
+  clientHandler.removeWorkerJob(workerJob);
   workerHandler.removeWorkerJob(workerJob);
   decreaseWorkerHandlerRank(workerHandler);
   if(table.getLoad() == 0)
@@ -243,7 +256,30 @@ void_t ServerHandler::removeWorkerJob(WorkerJob& workerJob)
     if(!table.isValid())
       removeTable(table);
   }
+  if(clientHandler.getLoad() == 0)
+  {
+    if(!clientHandler.isValid())
+      removeClient(clientHandler);
+  }
   delete &workerJob;
+}
+
+ControlJob& ServerHandler::createControlJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size)
+{
+  uint32_t id = nextControlRequestId++;
+  ControlJob* controlJob = new ControlJob(clientHandler, table, id, data, size);
+  table.addControlJob(*controlJob);
+  clientHandler.addControlJob(*controlJob);
+  controlJobs.append(id, controlJob);
+  return *controlJob;
+}
+
+void_t ServerHandler::removeControlJob(ControlJob& controlJob)
+{
+  controlJob.getTable().removeControlJob(controlJob);
+  controlJob.getClientHandler().removeControlJob(controlJob);
+  controlJobs.remove(controlJob.getId());
+  delete &controlJob;
 }
 
 Subscription& ServerHandler::createSubscription(ClientHandler& clientHandler, Table& table)
@@ -256,9 +292,7 @@ Subscription& ServerHandler::createSubscription(ClientHandler& clientHandler, Ta
 
 void_t ServerHandler::removeSubscription(Subscription& subscription)
 {
-  ClientHandler* clientHandler = subscription.getClientHandler();
-  if(clientHandler)
-    clientHandler->removeSubscription(subscription);
+  subscription.getClientHandler().removeSubscription(subscription);
   subscription.getTable().removeSubscription(subscription);
   delete &subscription;
 }

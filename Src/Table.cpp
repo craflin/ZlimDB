@@ -4,10 +4,29 @@
 #include "Table.h"
 #include "ServerHandler.h"
 #include "WorkerHandler.h"
+#include "Subscription.h"
+#include "ControlJob.h"
+#include "ClientHandler.h"
 
 Table::~Table()
 {
-  ASSERT(subscriptions.isEmpty());
+  ASSERT(openWorkerJobs.isEmpty());
+
+  HashSet<Subscription*> subscriptions;
+  subscriptions.swap(this->subscriptions);
+  for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+    serverHandler.removeSubscription(**i);
+
+  HashSet<ControlJob*> controlJobs;
+  controlJobs.swap(openControlJobs);
+  for(HashSet<ControlJob*>::Iterator i = openControlJobs.begin(), end = openControlJobs.end(); i != end; ++i)
+  {
+    ControlJob* controlJob = *i;
+    const zlimdb_control_request* control = (const zlimdb_control_request*)(const byte_t*)controlJob->getRequestData();
+    controlJob->getClientHandler().sendErrorResponse(control->header.request_id, zlimdb_error_table_not_found);
+    serverHandler.removeControlJob(*controlJob);
+  }
+
   delete tableFile;
 }
 
@@ -46,6 +65,13 @@ bool_t Table::copyEntity(zlimdb_table_entity& entity, size_t maxSize) const
   ClientProtocol::setEntityHeader(entity.entity, id, time, sizeof(zlimdb_table_entity));
   entity.flags = 0;
   return ClientProtocol::copyString(entity.entity, entity.name_size, name, maxSize);
+}
+
+void_t Table::removeSubscription(Subscription& subscription)
+{
+  subscriptions.remove(&subscription);
+  if(&subscription.getClientHandler() == responder)
+    responder = 0;
 }
 
 int64_t Table::updateTimeOffset(int64_t timeOffset)

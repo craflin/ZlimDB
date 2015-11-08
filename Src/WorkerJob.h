@@ -10,12 +10,9 @@ class TableFile;
 class WorkerJob
 {
 public:
-  WorkerJob(ClientHandler& clientHandler, Table& table, TableFile& tableFile, const void* request, size_t size, uint64_t param1) : clientHandler(&clientHandler), table(table), tableFile(tableFile), requestBuffer((const byte_t*)request, size), param1(param1) {}
+  WorkerJob(ClientHandler& clientHandler, Table& table, TableFile& tableFile, const void* request, size_t size, uint64_t param1) : clientHandler(clientHandler), table(table), tableFile(tableFile), requestBuffer((const byte_t*)request, size), param1(param1) {}
 
-  void_t detachClientHandler() {clientHandler = 0;}
-  bool_t isValid() const {return clientHandler != 0;}
-
-  ClientHandler* getClientHandler() {return clientHandler;}
+  ClientHandler& getClientHandler() {return clientHandler;}
   Table& getTable() {return table;}
   const Buffer& getRequestData() const {return requestBuffer;}
   Buffer& getRequestData() {return requestBuffer;}
@@ -26,8 +23,7 @@ public:
   uint64_t getParam1() const {return param1;}
 
 private:
-  bool_t valid;
-  ClientHandler* clientHandler;
+  ClientHandler& clientHandler;
   Table& table;
   TableFile& tableFile;
   Buffer requestBuffer;

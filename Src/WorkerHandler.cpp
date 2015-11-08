@@ -7,6 +7,7 @@
 #include "ServerHandler.h"
 #include "ClientHandler.h"
 #include "Table.h"
+#include "WorkerJob.h"
 
 WorkerHandler::~WorkerHandler()
 {
@@ -44,17 +45,17 @@ size_t WorkerHandler::handle(byte_t* data, size_t size)
 
 void_t WorkerHandler::handleWorkerJob(WorkerJob& workerJob)
 {
-  ClientHandler* clientHandler = workerJob.getClientHandler();
-  if(clientHandler)
+  ClientHandler& clientHandler = workerJob.getClientHandler();
+  if(clientHandler.isValid())
   {
-    clientHandler->handleWorkerJob(workerJob);
+    clientHandler.handleWorkerJob(workerJob);
     bool finished = (((const zlimdb_header*)(const byte_t*)workerJob.getResponseData())->flags & zlimdb_header_flag_fragmented) == 0;
     if(finished)
       serverHandler.removeWorkerJob(workerJob);
-    else if(!clientHandler->isSuspended())
+    else if(!clientHandler.isSuspended())
       workerJob.getTable().getWorkerHandler()->continueWorkerJob(workerJob);
     else
-      clientHandler->suspendWorkerJob(workerJob);
+      clientHandler.suspendWorkerJob(workerJob);
   }
   else
     serverHandler.removeWorkerJob(workerJob);

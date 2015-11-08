@@ -233,7 +233,7 @@ void_t WorkerThread::handleQuery(const zlimdb_query_request& query)
 
 void_t WorkerThread::handleSubscribe(const zlimdb_subscribe_request& subscribe)
 {
-  return handleQueryOrSubscribe(subscribe, zlimdb_message_subscribe_response);
+  return handleQueryOrSubscribe(subscribe.query, zlimdb_message_subscribe_response);
 }
 
 void_t WorkerThread::handleQueryOrSubscribe(const zlimdb_query_request& query, zlimdb_message_type responseType)

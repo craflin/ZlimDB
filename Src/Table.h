@@ -9,13 +9,16 @@
 #include "Tools/ClientProtocol.h"
 
 class WorkerJob;
+class ControlJob;
 class WorkerHandler;
 class Subscription;
+class ClientHandler;
+class ServerHandler;
 
 class Table
 {
 public:
-  Table(uint32_t id, int64_t time, const String& name) : id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), lastEntityTimestamp(0), minTimeOffset(0x7fffffffffffffffLL) {}
+  Table(ServerHandler& serverHandler, uint32_t id, int64_t time, const String& name) : serverHandler(serverHandler), id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), lastEntityTimestamp(0), minTimeOffset(0x7fffffffffffffffLL), responder(0) {}
   ~Table();
 
   uint32_t getId() const {return id;}
@@ -40,19 +43,27 @@ public:
   void_t addWorkerJob(WorkerJob& workerJob) {openWorkerJobs.append(&workerJob);}
   void_t removeWorkerJob(WorkerJob& workerJob) {openWorkerJobs.remove(&workerJob);}
 
+  void_t addControlJob(ControlJob& controlJob) {openControlJobs.append(&controlJob);}
+  void_t removeControlJob(ControlJob& controlJob) {openControlJobs.remove(&controlJob);}
+
   void_t addSubscription(Subscription& subscription) {subscriptions.append(&subscription);}
-  void_t removeSubscription(Subscription& subscription) {subscriptions.remove(&subscription);}
+  void_t removeSubscription(Subscription& subscription);
   HashSet<Subscription*>& getSubscriptions() {return subscriptions;}
 
   int64_t updateTimeOffset(int64_t timeOffset);
   int64_t getTimeOffset() const {return minTimeOffset == 0x7fffffffffffffffLL ? 0 : minTimeOffset;}
 
+  void_t setResponder(ClientHandler& responder) {this->responder = &responder;}
+  ClientHandler* getResponder() {return responder;}
+
 private:
+  ServerHandler& serverHandler;
   uint32_t id;
   bool valid;
   int64_t time;
   String name;
   HashSet<WorkerJob*> openWorkerJobs;
+  HashSet<ControlJob*> openControlJobs;
   WorkerHandler* workerHandler;
   TableFile* tableFile;
   uint64_t lastEntityId;
@@ -60,4 +71,5 @@ private:
   HashSet<Subscription*> subscriptions;
   List<int64_t> timeOffsets;
   int64_t minTimeOffset;
+  ClientHandler* responder;
 };

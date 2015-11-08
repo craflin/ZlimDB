@@ -10,23 +10,26 @@
 #include "WorkerThread.h"
 #include "Table.h"
 #include "Subscription.h"
+#include "ControlJob.h"
 
 ClientHandler::~ClientHandler()
 {
-  for(HashSet<WorkerJob*>::Iterator i = openWorkerJobs.begin(), end = openWorkerJobs.end(); i != end; ++i)
-    (*i)->detachClientHandler(); // invalidate
-  for(HashSet<WorkerJob*>::Iterator i = suspendedWorkerJobs.begin(), end = suspendedWorkerJobs.end(); i != end; ++i)
-  {
-    WorkerJob* workerJob = *i;
-    workerJob->detachClientHandler();
-    serverHandler.removeWorkerJob(*workerJob);
-  }
+  ASSERT(openWorkerJobs.isEmpty());
+
+  HashSet<WorkerJob*> workerJobs;
+  workerJobs.swap(suspendedWorkerJobs);
+  for(HashSet<WorkerJob*>::Iterator i = workerJobs.begin(), end = workerJobs.end(); i != end; ++i)
+    serverHandler.removeWorkerJob(**i);
+
+  HashMap<Table*, Subscription*> subscriptions;
+  subscriptions.swap(this->subscriptions);
   for(HashMap<Table*, Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
-  {
-    Subscription* subscription = *i;
-    subscription->detachClientHandler();
-    serverHandler.removeSubscription(*subscription);
-  }
+    serverHandler.removeSubscription(**i);
+
+  HashSet<ControlJob*> controlJobs;
+  controlJobs.swap(openControlJobs);
+  for(HashSet<ControlJob*>::Iterator i = controlJobs.begin(), end = controlJobs.end(); i != end; ++i)
+    serverHandler.removeControlJob(**i);
 }
 
 size_t ClientHandler::handle(byte_t* data, size_t size)
@@ -132,6 +135,9 @@ void_t ClientHandler::handleMessage(zlimdb_header& header)
       handleControl((zlimdb_control_request&)header);
     else
       sendErrorResponse(header.request_id, zlimdb_error_invalid_message_data);
+    break;
+  case zlimdb_message_control_response:
+    handleControlResponse(header);
     break;
   default:
     sendErrorResponse(header.request_id, zlimdb_error_invalid_message_type);
@@ -279,25 +285,29 @@ void_t ClientHandler::handleRemove(const zlimdb_remove_request& remove)
 
 void_t ClientHandler::handleSubscribe(const zlimdb_subscribe_request& subscribe)
 {
-  Table* table = serverHandler.findTable(subscribe.table_id);
+  Table* table = serverHandler.findTable(subscribe.query.table_id);
   if(!table)
-    return sendErrorResponse(subscribe.header.request_id, zlimdb_error_table_not_found);
+    return sendErrorResponse(subscribe.query.header.request_id, zlimdb_error_table_not_found);
   if(subscriptions.contains(table))
-    return sendOkResponse(zlimdb_message_subscribe_response, subscribe.header.request_id);
+    return sendOkResponse(zlimdb_message_subscribe_response, subscribe.query.header.request_id);
+  if(subscribe.flags & zlimdb_subscribe_flag_responder && table->getResponder())
+    return sendErrorResponse(subscribe.query.header.request_id, zlimdb_error_responder_already_present);
   Subscription& subscription = serverHandler.createSubscription(*this, *table);
+  if(subscribe.flags & zlimdb_subscribe_flag_responder)
+    table->setResponder(*this);
   if(table->getTableFile())
   {
-    if(table->getLastEntityId() == 0 || subscribe.type == zlimdb_query_type_since_next)
+    if(table->getLastEntityId() == 0 || subscribe.query.type == zlimdb_query_type_since_next)
     {
       subscription.setSynced();
-      return sendOkResponse(zlimdb_message_subscribe_response, subscribe.header.request_id);
+      return sendOkResponse(zlimdb_message_subscribe_response, subscribe.query.header.request_id);
     }
     else
       serverHandler.createWorkerJob(*this, *table, &subscribe, sizeof(subscribe), 0);
   }
   else
   {
-    handleMetaQuery(subscribe, zlimdb_message_subscribe_response);
+    handleMetaQuery(subscribe.query, zlimdb_message_subscribe_response);
     subscription.setSynced();
   }
 }
@@ -438,19 +448,49 @@ void_t ClientHandler::handleControl(zlimdb_control_request& control)
       if(!table)
         return sendErrorResponse(control.header.request_id, zlimdb_error_table_not_found);
 
-      // notify subscribers
-      HashSet<Subscription*>& subscriptions = table->getSubscriptions();
-      control.header.request_id = 0;
-      for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
-      {
-        Subscription* subscription = *i;
-        if(subscription->isSynced())
-          subscription->getClientHandler()->client.send((const byte_t*)&control, control.header.size);
-      }
+      // get responder
+      ClientHandler* responder = table->getResponder();
+      if(!responder)
+        return sendErrorResponse(control.header.request_id, zlimdb_error_responder_not_available);
+
+      // create request id
+      ControlJob& controlJob = serverHandler.createControlJob(*this, *table, &control, control.header.size);
+
+
+      // send request to responder
+      uint64_t requestId = control.header.request_id;
+      control.header.request_id = controlJob.getId();
+      responder->client.send((const byte_t*)&control, control.header.size);
+
+
     }
     break;
   }
+}
 
+void_t ClientHandler::handleControlResponse(const zlimdb_header& response)
+{
+  // find control job
+  ControlJob* controlJob = serverHandler.findControlRequest(response.request_id);
+  if(!controlJob)
+    return;
+
+  // send response to requester
+  controlJob->getClientHandler().client.send((const byte_t*)&response, response.size);
+
+  // notify subscribers
+  HashSet<Subscription*>& subscriptions = controlJob->getTable().getSubscriptions();
+  zlimdb_control_request* control = (zlimdb_control_request*)(byte_t*)controlJob->getRequestData();
+  control->header.request_id = 0;
+  for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+  {
+    Subscription* subscription = *i;
+    if(subscription->isSynced())
+      subscription->getClientHandler().client.send((const byte_t*)control, control->header.size);
+  }
+
+  // remvoe control job
+  serverHandler.removeControlJob(*controlJob);
 }
 
 void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_message_type responseType)
@@ -632,7 +672,7 @@ void_t ClientHandler::handleInternalAddResponse(WorkerJob& workerJob, const zlim
       {
         Subscription* subscription = *i;
         if(subscription->isSynced())
-          subscription->getClientHandler()->client.send((const byte_t*)addRequest, addRequest->header.size);
+          subscription->getClientHandler().client.send((const byte_t*)addRequest, addRequest->header.size);
       }
   }
 }
@@ -654,7 +694,7 @@ void_t ClientHandler::handleInternalUpdateResponse(WorkerJob& workerJob, const z
       {
         Subscription* subscription = *i;
         if(subscription->isSynced() || entity->id <= subscription->getMaxEntityId())
-          subscription->getClientHandler()->client.send((const byte_t*)updateRequest, updateRequest->header.size);
+          subscription->getClientHandler().client.send((const byte_t*)updateRequest, updateRequest->header.size);
       }
   }
 }
@@ -675,7 +715,7 @@ void_t ClientHandler::handleInternalRemoveResponse(WorkerJob& workerJob, const z
       {
         Subscription* subscription = *i;
         if(subscription->isSynced() || removeRequest->id <= subscription->getMaxEntityId())
-          subscription->getClientHandler()->client.send((const byte_t*)removeRequest, removeRequest->header.size);
+          subscription->getClientHandler().client.send((const byte_t*)removeRequest, removeRequest->header.size);
       }
   }
 }
@@ -695,7 +735,7 @@ void_t ClientHandler::handleInternalClearResponse(WorkerJob& workerJob, const zl
       for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
       {
         Subscription* subscription = *i;
-        subscription->getClientHandler()->client.send((const byte_t*)clearRequest, clearRequest->header.size);
+        subscription->getClientHandler().client.send((const byte_t*)clearRequest, clearRequest->header.size);
       }
   }
 }
@@ -711,7 +751,7 @@ void_t ClientHandler::handleInternalSubscribeResponse(WorkerJob& workerJob, zlim
     {
       Subscription* subscription = *i;
       uint64_t lastReplayedEntityId = workerJob.getParam1();
-      const zlimdb_subscribe_request* request = (const zlimdb_subscribe_request*)(const byte_t*)workerJob.getRequestData();
+      const zlimdb_query_request* request = (const zlimdb_query_request*)(const byte_t*)workerJob.getRequestData();
       if(lastReplayedEntityId != table.getLastEntityId() && request->type != zlimdb_query_type_by_id)
       {
         subscribeResponse.flags |= zlimdb_header_flag_fragmented;
@@ -777,7 +817,7 @@ void_t ClientHandler::handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_he
     {
       Subscription* subscription = *i;
       if(subscription->isSynced())
-        subscription->getClientHandler()->client.send((const byte_t*)addRequest, addRequest->header.size);
+        subscription->getClientHandler().client.send((const byte_t*)addRequest, addRequest->header.size);
     }
   }
 }
