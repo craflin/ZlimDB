@@ -71,7 +71,19 @@ void_t Table::removeSubscription(Subscription& subscription)
 {
   subscriptions.remove(&subscription);
   if(&subscription.getClientHandler() == responder)
+  {
     responder = 0;
+
+    HashSet<ControlJob*> controlJobs;
+    controlJobs.swap(openControlJobs);
+    for(HashSet<ControlJob*>::Iterator i = openControlJobs.begin(), end = openControlJobs.end(); i != end; ++i)
+    {
+      ControlJob* controlJob = *i;
+      const zlimdb_control_request* control = (const zlimdb_control_request*)(const byte_t*)controlJob->getRequestData();
+      controlJob->getClientHandler().sendErrorResponse(control->header.request_id, zlimdb_error_responder_not_available);
+      serverHandler.removeControlJob(*controlJob);
+    }
+  }
 }
 
 int64_t Table::updateTimeOffset(int64_t timeOffset)

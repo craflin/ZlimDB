@@ -456,13 +456,10 @@ void_t ClientHandler::handleControl(zlimdb_control_request& control)
       // create request id
       ControlJob& controlJob = serverHandler.createControlJob(*this, *table, &control, control.header.size);
 
-
       // send request to responder
       uint64_t requestId = control.header.request_id;
       control.header.request_id = controlJob.getId();
       responder->client.send((const byte_t*)&control, control.header.size);
-
-
     }
     break;
   }
@@ -473,6 +470,10 @@ void_t ClientHandler::handleControlResponse(const zlimdb_header& response)
   // find control job
   ControlJob* controlJob = serverHandler.findControlRequest(response.request_id);
   if(!controlJob)
+    return;
+
+  // check responder
+  if(controlJob->getTable().getResponder() != this)
     return;
 
   // send response to requester
