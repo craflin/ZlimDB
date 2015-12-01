@@ -139,6 +139,10 @@ void_t ClientHandler::handleMessage(zlimdb_header& header)
   case zlimdb_message_control_response:
     handleControlResponse(header);
     break;
+  case zlimdb_message_error_response:
+    if(header.size >= sizeof(zlimdb_error_response))
+      handleControlResponse(header);
+    break;
   default:
     sendErrorResponse(header.request_id, zlimdb_error_invalid_message_type);
     break;
