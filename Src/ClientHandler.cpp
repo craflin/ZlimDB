@@ -469,7 +469,7 @@ void_t ClientHandler::handleControl(zlimdb_control_request& control)
   }
 }
 
-void_t ClientHandler::handleControlResponse(const zlimdb_header& response)
+void_t ClientHandler::handleControlResponse(zlimdb_header& response)
 {
   // find control job
   ControlJob* controlJob = serverHandler.findControlRequest(response.request_id);
@@ -481,18 +481,19 @@ void_t ClientHandler::handleControlResponse(const zlimdb_header& response)
     return;
 
   // send response to requester
+  zlimdb_control_request* control = (zlimdb_control_request*)(byte_t*)controlJob->getRequestData();
+  response.request_id = control->header.request_id;
   controlJob->getClientHandler().client.send((const byte_t*)&response, response.size);
 
   // notify subscribers
-  HashSet<Subscription*>& subscriptions = controlJob->getTable().getSubscriptions();
-  zlimdb_control_request* control = (zlimdb_control_request*)(byte_t*)controlJob->getRequestData();
-  control->header.request_id = 0;
-  for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
-  {
-    Subscription* subscription = *i;
-    if(subscription->isSynced())
-      subscription->getClientHandler().client.send((const byte_t*)control, control->header.size);
-  }
+  //HashSet<Subscription*>& subscriptions = controlJob->getTable().getSubscriptions();
+  //control->header.request_id = 0;
+  //for(HashSet<Subscription*>::Iterator i = subscriptions.begin(), end = subscriptions.end(); i != end; ++i)
+  //{
+  //  Subscription* subscription = *i;
+  //  if(subscription->isSynced())
+  //    subscription->getClientHandler().client.send((const byte_t*)control, control->header.size);
+  //}
 
   // remvoe control job
   serverHandler.removeControlJob(*controlJob);
