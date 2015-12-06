@@ -278,7 +278,10 @@ bool_t TableFile::getFirstCompressedBlock2(uint64_t& nextBlockId, Buffer& data, 
   if(keys.isEmpty())
   {
     nextBlockId = 0;
-    data.resize(dataOffset + sizeof(uint16_t));
+    size_t offsetAndSizeHeader = dataOffset + sizeof(uint16_t);
+    data.resize(offsetAndSizeHeader + LZ4_compressBound(0));
+    char_t buffer[1];
+    data.resize(offsetAndSizeHeader + LZ4_compress((const char*)(const byte_t*)buffer, (char*)(byte_t*)data + offsetAndSizeHeader, 0));
     *(uint16_t*)((byte_t*)data + dataOffset) = 0;
     return lastError = noError, true;
   }
@@ -496,6 +499,8 @@ bool_t TableFile::update(const DataHeader& data)
     // reset uncompressed block
     this->uncompressedBlock.clear();
 
+    // todo: handle uncompressedBlock is too large case!!!
+
     // rewrite uncompressed block
     uint64_t uncompressedBlockPosition = fileHeader.keyPosition + fileHeader.keySize;
     if(!fileSeek(uncompressedBlockPosition))
@@ -544,6 +549,8 @@ bool_t TableFile::update(const DataHeader& data)
     // move compressed block to end of file
     if(!moveCompressedBlockToEnd(compressedBlock, *key))
       return false;
+
+    // todo: try to move updated block back?
   }
   return lastError = noError, true;
 
