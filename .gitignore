@@ -7,3 +7,5 @@ Data/
 *.vcxproj
 *.vcxproj.filters
 *.sln
+.*
+CMakeLists.txt
