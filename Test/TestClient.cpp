@@ -3,6 +3,7 @@
 #include <nstd/Directory.h>
 #include <nstd/File.h>
 #include <nstd/Debug.h>
+#include <nstd/Thread.h>
 
 #include <zlimdbclient.h>
 
@@ -15,7 +16,12 @@ void_t testClient(const char_t* argv0)
   Directory::unlink(binDir + "/TestData", true);
   ASSERT(!File::exists(binDir + "/TestData"));
   Process zlimdbServer;
+#ifdef _WIN32
   ASSERT(zlimdbServer.start(binDir + "/../zlimdb/zlimdb.exe -c " + binDir + "/TestData") != 0);
+#else
+  ASSERT(zlimdbServer.start(binDir + "/../zlimdb/zlimdb -c " + binDir + "/TestData") != 0);
+  Thread::sleep(100);
+#endif
 
   // test init
   ASSERT(zlimdb_init() == 0);
