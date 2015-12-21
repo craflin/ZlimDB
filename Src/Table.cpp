@@ -64,7 +64,7 @@ bool_t Table::copyEntity(zlimdb_table_entity& entity, size_t maxSize) const
 {
   ClientProtocol::setEntityHeader(entity.entity, id, time, sizeof(zlimdb_table_entity));
   entity.flags = 0;
-  return ClientProtocol::copyString(entity.entity, entity.name_size, name, maxSize);
+  return ClientProtocol::copyString(name, entity.entity, entity.name_size, maxSize);
 }
 
 void_t Table::removeSubscription(Subscription& subscription)

@@ -63,7 +63,7 @@ public:
     entity.size = size;
   }
 
-  static bool_t copyString(zlimdb_entity& entity, uint16_t& length, const String& str, size_t maxSize)
+  static bool_t copyString(const String& str, zlimdb_entity& entity, uint16_t& length, size_t maxSize)
   {
     length = str.length() + 1;
     if((size_t)entity.size + length > maxSize)
