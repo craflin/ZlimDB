@@ -65,7 +65,7 @@ public:
 
   static bool_t copyString(const String& str, zlimdb_entity& entity, uint16_t& length, size_t maxSize)
   {
-    length = str.length() + 1;
+    length = (uint16_t)(str.length() + 1);
     if((size_t)entity.size + length > maxSize)
       return false;
     Memory::copy((byte_t*)&entity + entity.size, (const char_t*)str, length);

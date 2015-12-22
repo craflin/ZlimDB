@@ -1,5 +1,6 @@
 
 #ifdef _WIN32
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <winsock2.h>
 #else
 #include <unistd.h>
@@ -17,8 +18,17 @@
 #ifdef _WIN32
 #define ERRNO WSAGetLastError()
 #define SET_ERRNO(e) WSASetLastError(e)
+#ifdef EWOULDBLOCK
+#undef EWOULDBLOCK
+#endif
 #define EWOULDBLOCK WSAEWOULDBLOCK
+#ifdef EINPROGRESS
+#undef EINPROGRESS
+#endif
 #define EINPROGRESS WSAEINPROGRESS
+#ifdef EINVAL
+#undef EINVAL
+#endif
 #define EINVAL WSAEINVAL
 #define CLOSE closesocket
 typedef int socklen_t;
