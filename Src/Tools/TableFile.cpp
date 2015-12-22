@@ -463,7 +463,7 @@ bool_t TableFile::add(const DataHeader& data, int64_t timeOffset)
     return false;
   Key newKey = key;
   newKey.position = fileSize;
-  newKey.size = compressedBlock.size();
+  newKey.size = (uint16_t)compressedBlock.size();
   if(!fileWrite(&newKey, sizeof(newKey)))
     return false;
   key.position = newKey.position;
@@ -511,7 +511,7 @@ bool_t TableFile::update(const DataHeader& data)
     // update index of uncompressed block
     Key newKey = *key;
     newKey.position = uncompressedBlockPosition;
-    newKey.size = uncompressedBlock.size();
+    newKey.size = (uint16_t)uncompressedBlock.size();
     if(!fileSeek(fileHeader.keyPosition + ((const byte_t*)key - (const byte_t*)keys)))
       return false;
     if(!fileWrite(&newKey, sizeof(newKey)))
@@ -608,7 +608,7 @@ bool_t TableFile::remove(uint64_t id)
     // update index of uncompressed block
     Key newKey = *key;
     newKey.position = uncompressedBlockPosition;
-    newKey.size = uncompressedBlock.size();
+    newKey.size = (uint16_t)uncompressedBlock.size();
     if(!fileSeek(fileHeader.keyPosition + ((const byte_t*)key - (const byte_t*)keys)))
       return false;
     if(!fileWrite(&newKey, sizeof(newKey)))
@@ -1002,7 +1002,7 @@ found:;
   size_t uncompressedBlockSize = buffer.size();
   compressedBuffer.resize(sizeof(uint16_t) + LZ4_compressBound(uncompressedBlockSize));
   compressedBuffer.resize(sizeof(uint16_t) + LZ4_compress((const char*)(const byte_t*)buffer, (char*)(byte_t*)compressedBuffer + sizeof(uint16_t), uncompressedBlockSize));
-  *(int16_t*)(byte_t*)compressedBuffer = uncompressedBlockSize;
+  *(int16_t*)(byte_t*)compressedBuffer = (uint16_t)uncompressedBlockSize;
 }
 
 /*private static*/ void_t TableFile::compressBuffer(const Buffer& buffer, Buffer& compressedBuffer, size_t offset)
@@ -1011,14 +1011,14 @@ found:;
   size_t offsetAndSizeHeader = offset + sizeof(uint16_t);
   compressedBuffer.resize(offsetAndSizeHeader + LZ4_compressBound(uncompressedBlockSize));
   compressedBuffer.resize(offsetAndSizeHeader + LZ4_compress((const char*)(const byte_t*)buffer, (char*)(byte_t*)compressedBuffer + offsetAndSizeHeader, uncompressedBlockSize));
-  *(int16_t*)((byte_t*)compressedBuffer + offset) = uncompressedBlockSize;
+  *(int16_t*)((byte_t*)compressedBuffer + offset) = (uint16_t)uncompressedBlockSize;
 }
 
 /*private static*/ void_t TableFile::compressBuffer(const void_t* data, size_t size, Buffer& compressedBuffer)
 {
   compressedBuffer.resize(sizeof(uint16_t) + LZ4_compressBound(size));
   compressedBuffer.resize(sizeof(uint16_t) + LZ4_compress((const char*)data, (char*)(byte_t*)compressedBuffer + sizeof(uint16_t), size));
-  *(int16_t*)(byte_t*)compressedBuffer = size;
+  *(int16_t*)(byte_t*)compressedBuffer = (uint16_t)size;
 }
 
 /*private static*/ void_t TableFile::compressBuffer(const void_t* data, size_t size, Buffer& compressedBuffer, size_t offset)
@@ -1026,7 +1026,7 @@ found:;
   size_t offsetAndSizeHeader = offset + sizeof(uint16_t);
   compressedBuffer.resize(offsetAndSizeHeader + LZ4_compressBound(size));
   compressedBuffer.resize(offsetAndSizeHeader + LZ4_compress((const char*)data, (char*)(byte_t*)compressedBuffer + offsetAndSizeHeader, size));
-  *(int16_t*)(byte_t*)(compressedBuffer + offset) = size;
+  *(int16_t*)(byte_t*)(compressedBuffer + offset) = (uint16_t)size;
 }
 
 /*private*/ bool_t TableFile::decompressBuffer(const Buffer& compressedBuffer, Buffer& buffer)
