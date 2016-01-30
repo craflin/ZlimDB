@@ -120,7 +120,38 @@ void_t testClient(const char_t* argv0)
       while(zlimdb_get_response(zdb, (zlimdb_header*)buffer, sizeof(buffer)) == 0)
         for(const zlimdb_entity* entity = zlimdb_get_first_entity((zlimdb_header*)buffer, sizeof(zlimdb_entity)); entity; entity = zlimdb_get_next_entity((zlimdb_header*)buffer, sizeof(zlimdb_entity), entity))
           ++count;
+    ASSERT(zlimdb_errno() == 0);
     ASSERT(count == 4);
+  }
+
+  // test remove table
+  {
+    uint32_t tableId, tableId2;
+    ASSERT(zlimdb_add_table(zdb, "TestTableRemove", &tableId) == 0);
+    ASSERT(zlimdb_find_table(zdb, "TestTableRemove", &tableId2) == 0);
+    ASSERT(tableId == tableId2);
+    ASSERT(zlimdb_remove_table(zdb, tableId) == 0);
+    ASSERT(zlimdb_find_table(zdb, "TestTableRemove", &tableId2) != 0);
+    ASSERT(zlimdb_errno() == zlimdb_error_table_not_found);
+    ASSERT(zlimdb_add_table(zdb, "TestTableRemove", &tableId) == 0);
+    ASSERT(zlimdb_find_table(zdb, "TestTableRemove", &tableId2) == 0);
+    ASSERT(tableId == tableId2);
+    char_t buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+    zlimdb_entity* entity = (zlimdb_entity*)buffer;
+    entity->size = 123;
+    entity->id = 0;
+    entity->time = 0;
+    uint64_t entityId;
+    ASSERT(zlimdb_add(zdb, tableId, entity, &entityId) == 0);
+    ASSERT(zlimdb_add(zdb, tableId, entity, &entityId) == 0);
+    ASSERT(zlimdb_add(zdb, tableId, entity, &entityId) == 0);
+    ASSERT(zlimdb_query(zdb, tableId, zlimdb_query_type_all, 0) == 0);
+    size_t count = 0;
+      while(zlimdb_get_response(zdb, (zlimdb_header*)buffer, sizeof(buffer)) == 0)
+        for(const zlimdb_entity* entity = zlimdb_get_first_entity((zlimdb_header*)buffer, sizeof(zlimdb_entity)); entity; entity = zlimdb_get_next_entity((zlimdb_header*)buffer, sizeof(zlimdb_entity), entity))
+          ++count;
+    ASSERT(zlimdb_errno() == 0);
+    ASSERT(count == 3);
   }
 
   // close connection
