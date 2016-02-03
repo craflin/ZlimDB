@@ -45,6 +45,7 @@ private:
   void_t handleQueryOrSubscribe(const zlimdb_query_request& query, zlimdb_message_type responseType);
   void_t handleClear(const zlimdb_clear_request& clear);
   void_t handleCopy(const zlimdb_copy_request& copy);
+  void_t handleReplace(const zlimdb_replace_request& replace);
 
   void_t sendErrorResponse(uint32_t requestId, zlimdb_message_error error);
 };

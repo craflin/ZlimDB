@@ -46,10 +46,12 @@ bool_t ServerHandler::loadTables(const String& path)
     for(uint16_t* i = (uint16_t*)user.pw_salt, * end = (uint16_t*)(user.pw_salt + sizeof(user.pw_salt)); i < end; ++i)
       *i = Math::random();
     Sha256::hmac(user.pw_salt, sizeof(user.pw_salt), (const byte_t*)"root", 4, user.pw_hash);
-    Table& table = createTable(tableName);
-    if(!table.create(&user.entity))
+    Table* table = createTable(tableName);
+    if(!table)
+      return false;
+    if(!table->create(&user.entity))
     {
-      removeTable(table);
+      removeTable(*table);
       return false;
     }
   }
@@ -147,13 +149,15 @@ void_t ServerHandler::increaseWorkerHandlerRank(WorkerHandler& workerHandler)
   }
 }
 
-Table& ServerHandler::createTable(const String& name)
+Table* ServerHandler::createTable(const String& name)
 {
+  if(tables.find(name) != tables.end())
+    return 0;
   uint32_t id = nextTableId++;
   Table* table = new Table(*this, id, Time::time(), name);
   tables.append(id, table);
   tablesByName.append(table->getName(), table);
-  return *table;
+  return table;
 }
 
 void_t ServerHandler::removeTable(Table& table)
@@ -166,6 +170,14 @@ void_t ServerHandler::removeTable(Table& table)
 Table* ServerHandler::findTable(uint32_t id) const
 {
   Table* table = *tables.find(id);
+  if(table && table->isAvailable())
+    return table;
+  return 0;
+}
+
+Table* ServerHandler::findTableIgnoreAvailability(uint32_t id) const
+{
+  Table* table = *tables.find(id);
   if(table && table->isValid())
     return table;
   return 0;
@@ -174,7 +186,7 @@ Table* ServerHandler::findTable(uint32_t id) const
 Table* ServerHandler::findTable(const String& name) const
 {
   Table* table = *tablesByName.find(name);
-  if(table && table->isValid())
+  if(table && table->isAvailable())
     return table;
   return 0;
 }

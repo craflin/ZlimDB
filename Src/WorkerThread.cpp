@@ -89,6 +89,9 @@ void_t WorkerThread::handleMessage(const zlimdb_header& header)
   case zlimdb_message_copy_request:
     handleCopy((const zlimdb_copy_request&)header);
     break;
+  case zlimdb_message_replace_request:
+    handleReplace((const zlimdb_replace_request&)header);
+    break;
   default:
     ASSERT(false);
     break;
@@ -342,7 +345,7 @@ void_t WorkerThread::handleClear(const zlimdb_clear_request& clear)
 void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
-  if(currentWorkerJob->getParam1() == 0)
+  if(currentWorkerJob->getParam1() == 0) // copy source file
   {
     const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&copy + 1);
 
@@ -360,7 +363,7 @@ void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
     zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
     ClientProtocol::setHeader(*response, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
   }
-  else
+  else // open destination file
   {
     if(!tableFile.open())
       return sendErrorResponse(copy.header.request_id, zlimdb_error_open_file);
@@ -370,6 +373,56 @@ void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
     zlimdb_copy_response* response = (zlimdb_copy_response*)(byte_t*)responseBuffer;
     ClientProtocol::setHeader(response->header, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
     response->id = tableFile.getTableId();
+  }
+}
+
+void_t WorkerThread::handleReplace(const zlimdb_replace_request& replace)
+{
+  TableFile& tableFile = currentWorkerJob->getTableFile();
+  switch(currentWorkerJob->getParam1())
+  {
+    case 0: // delete destination file
+    {
+      tableFile.close();
+      if(!File::unlink(tableFile.getFileName()))
+        return sendErrorResponse(replace.header.request_id, zlimdb_error_write_file);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(zlimdb_header));
+      zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(*response, zlimdb_message_replace_response, sizeof(zlimdb_header), replace.header.request_id);
+      return;
+    }
+    case 1: // create copy of source file
+    {
+      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&replace + 1);
+
+      String newFileName;
+      if(!ClientProtocol::getString(tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, newFileName))
+        return sendErrorResponse(replace.header.request_id, zlimdb_error_invalid_message_data);
+
+      const String& fileName = tableFile.getFileName();
+      const String tempFileName = File::dirname(fileName) + "/." + File::basename(fileName) + ".tmp";
+      if(!tableFile.copy(tempFileName) || !File::rename(tempFileName, newFileName))
+        return sendErrorResponse(replace.header.request_id, zlimdb_error_write_file);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(zlimdb_header));
+      zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(*response, zlimdb_message_replace_response, sizeof(zlimdb_header), replace.header.request_id);
+      return;
+    }
+    case 2: // open destination file
+    {
+      if(!tableFile.open())
+        return sendErrorResponse(replace.header.request_id, zlimdb_error_open_file);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(zlimdb_copy_response));
+      zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(*response, zlimdb_message_replace_response, sizeof(zlimdb_header), replace.header.request_id);
+      return;
+    }
   }
 }
 

@@ -26,10 +26,11 @@ public:
 
   bool_t createWorkerThread();
 
-  Table& createTable(const String& name);
+  Table* createTable(const String& name);
   void_t removeTable(Table& table);
   const HashMap<uint32_t, Table*>& getTables() const {return tables;}
   Table* findTable(uint32_t id) const;
+  Table* findTableIgnoreAvailability(uint32_t id) const;
   Table* findTable(const String& name) const;
 
   WorkerJob& createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size, uint64_t param1);
