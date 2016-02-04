@@ -18,15 +18,13 @@ class ServerHandler;
 class Table
 {
 public:
-  Table(ServerHandler& serverHandler, uint32_t id, int64_t time, const String& name) : serverHandler(serverHandler), id(id), valid(true), available(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), lastEntityTimestamp(0), minTimeOffset(0x7fffffffffffffffLL), responder(0) {}
+  Table(ServerHandler& serverHandler, uint32_t id, int64_t time, const String& name) : serverHandler(serverHandler), id(id), valid(true), time(time), name(name), workerHandler(0), tableFile(name.isEmpty() ? 0 : new TableFile(id, name)), lastEntityId(0), lastEntityTimestamp(0), minTimeOffset(0x7fffffffffffffffLL), responder(0) {}
   ~Table();
 
   uint32_t getId() const {return id;}
   const String& getName() const {return name;}
   bool_t isValid() const {return valid;}
-  bool_t isAvailable() const {return available;}
-  void_t setAvailable(bool_t available) {this->available = available;}
-  void_t invalidate() {valid = available = false;}
+  void_t invalidate() {valid = false;}
 
   bool_t open(); // todo: rename openFile
   bool_t create(const zlimdb_entity* entity); // todo: rename createFile
@@ -62,7 +60,6 @@ private:
   ServerHandler& serverHandler;
   uint32_t id;
   bool valid; // the table is not about to be remove
-  bool available; // table can be used
   int64_t time;
   String name;
   HashSet<WorkerJob*> openWorkerJobs;

@@ -167,30 +167,6 @@ void_t ServerHandler::removeTable(Table& table)
   delete &table;
 }
 
-Table* ServerHandler::findTable(uint32_t id) const
-{
-  Table* table = *tables.find(id);
-  if(table && table->isAvailable())
-    return table;
-  return 0;
-}
-
-Table* ServerHandler::findTableIgnoreAvailability(uint32_t id) const
-{
-  Table* table = *tables.find(id);
-  if(table && table->isValid())
-    return table;
-  return 0;
-}
-
-Table* ServerHandler::findTable(const String& name) const
-{
-  Table* table = *tablesByName.find(name);
-  if(table && table->isAvailable())
-    return table;
-  return 0;
-}
-
 void_t ServerHandler::acceptedClient(Server::Client& client, uint16_t localPort)
 {
   ClientHandler* clientHandler = new ClientHandler(*this, client);
@@ -231,8 +207,10 @@ void_t ServerHandler::removeClient(ClientHandler& clientHandler)
   delete &clientHandler;
 }
 
-WorkerJob& ServerHandler::createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size, uint64_t param1)
+WorkerJob* ServerHandler::createWorkerJob2(ClientHandler& clientHandler, Table& table, const void* data, size_t size, uint64_t param1)
 {
+  if(!table.isValid())
+    return 0;
   WorkerJob* workerJob = new WorkerJob(clientHandler, table, *table.getTableFile(), data, size, param1);
   WorkerHandler* workerHandler = table.getWorkerHandler();
   if(!workerHandler)
@@ -250,7 +228,7 @@ WorkerJob& ServerHandler::createWorkerJob(ClientHandler& clientHandler, Table& t
   }
   table.addWorkerJob(*workerJob);
   clientHandler.addWorkerJob(*workerJob);
-  return *workerJob;
+  return workerJob;
 }
 
 void_t ServerHandler::removeWorkerJob(WorkerJob& workerJob)

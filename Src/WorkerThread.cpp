@@ -354,7 +354,7 @@ void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
       return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
 
     const String& fileName = tableFile.getFileName();
-    const String tempFileName = File::dirname(fileName) + "/." + File::basename(fileName) + ".tmp";
+    const String tempFileName = File::dirname(fileName) + "/." + File::basename(fileName) + "-copy";
     if(!tableFile.copy(tempFileName) || !File::rename(tempFileName, copyFileName))
       return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
 
@@ -381,29 +381,21 @@ void_t WorkerThread::handleReplace(const zlimdb_replace_request& replace)
   TableFile& tableFile = currentWorkerJob->getTableFile();
   switch(currentWorkerJob->getParam1())
   {
-    case 0: // delete destination file
-    {
-      tableFile.close();
-      if(!File::unlink(tableFile.getFileName()))
-        return sendErrorResponse(replace.header.request_id, zlimdb_error_write_file);
-
-      Buffer& responseBuffer = currentWorkerJob->getResponseData();
-      responseBuffer.resize(sizeof(zlimdb_header));
-      zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
-      ClientProtocol::setHeader(*response, zlimdb_message_replace_response, sizeof(zlimdb_header), replace.header.request_id);
-      return;
-    }
-    case 1: // create copy of source file
+    case 0: // create a copy of the source file
     {
       const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&replace + 1);
 
-      String newFileName;
-      if(!ClientProtocol::getString(tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, newFileName))
+      String destFileName;
+      if(!ClientProtocol::getString(tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, destFileName))
         return sendErrorResponse(replace.header.request_id, zlimdb_error_invalid_message_data);
 
-      const String& fileName = tableFile.getFileName();
-      const String tempFileName = File::dirname(fileName) + "/." + File::basename(fileName) + ".tmp";
-      if(!tableFile.copy(tempFileName) || !File::rename(tempFileName, newFileName))
+      const String& sourceFileName = tableFile.getFileName();
+      const String tempSourceFileName = File::dirname(sourceFileName) + "/." + File::basename(sourceFileName) + "-copy";
+      const String tempDestFileName = File::dirname(destFileName) + "/." + File::basename(destFileName) + "-new";
+      if(!tableFile.copy(tempSourceFileName))
+        return sendErrorResponse(replace.header.request_id, zlimdb_error_write_file);
+
+      if(!File::rename(tempSourceFileName, tempDestFileName))
         return sendErrorResponse(replace.header.request_id, zlimdb_error_write_file);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
@@ -412,11 +404,18 @@ void_t WorkerThread::handleReplace(const zlimdb_replace_request& replace)
       ClientProtocol::setHeader(*response, zlimdb_message_replace_response, sizeof(zlimdb_header), replace.header.request_id);
       return;
     }
-    case 2: // open destination file
+    case 1: // open the new destination file
     {
+      const String destFileName = tableFile.getFileName();
+      const String tempDestFileName = File::dirname(destFileName) + "/." + File::basename(destFileName) + "-new";
+
+      tableFile.close();
+      if(File::exists(tempDestFileName)) // tempDestFileName does not exist when it was stolen by a previous replace action in case they were executed in quick succession. 
+                                         // destFileName is already the newest when this happens, hence we can simply reopen the file and ignore that tempDestFileName does not exist.
+        if(!File::rename(tempDestFileName, destFileName, false))
+          return sendErrorResponse(replace.header.request_id, zlimdb_error_write_file);
       if(!tableFile.open())
         return sendErrorResponse(replace.header.request_id, zlimdb_error_open_file);
-
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(zlimdb_copy_response));
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;

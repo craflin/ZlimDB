@@ -29,11 +29,10 @@ public:
   Table* createTable(const String& name);
   void_t removeTable(Table& table);
   const HashMap<uint32_t, Table*>& getTables() const {return tables;}
-  Table* findTable(uint32_t id) const;
-  Table* findTableIgnoreAvailability(uint32_t id) const;
-  Table* findTable(const String& name) const;
+  Table* findTable(uint32_t id) const {return *tables.find(id);}
+  Table* findTable(const String& name) const {return *tablesByName.find(name);}
 
-  WorkerJob& createWorkerJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size, uint64_t param1);
+  WorkerJob* createWorkerJob2(ClientHandler& clientHandler, Table& table, const void* data, size_t size, uint64_t param1);
   void_t removeWorkerJob(WorkerJob& workerJob);
 
   ControlJob& createControlJob(ClientHandler& clientHandler, Table& table, const void* data, size_t size);

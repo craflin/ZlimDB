@@ -7,6 +7,7 @@
 #include "Subscription.h"
 #include "ControlJob.h"
 #include "ClientHandler.h"
+#include "WorkerJob.h"
 
 Table::~Table()
 {
