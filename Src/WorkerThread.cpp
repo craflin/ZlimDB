@@ -89,8 +89,8 @@ void_t WorkerThread::handleMessage(const zlimdb_header& header)
   case zlimdb_message_copy_request:
     handleCopy((const zlimdb_copy_request&)header);
     break;
-  case zlimdb_message_replace_request:
-    handleReplace((const zlimdb_replace_request&)header);
+  case zlimdb_message_rename_request:
+    handleRename((const zlimdb_rename_request&)header);
     break;
   default:
     ASSERT(false);
@@ -345,81 +345,130 @@ void_t WorkerThread::handleClear(const zlimdb_clear_request& clear)
 void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
 {
   TableFile& tableFile = currentWorkerJob->getTableFile();
-  if(currentWorkerJob->getParam1() == 0) // copy source file
-  {
-    const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&copy + 1);
-
-    String copyFileName;
-    if(!ClientProtocol::getString(tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, copyFileName))
-      return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
-
-    const String& fileName = tableFile.getFileName();
-    const String tempFileName = File::dirname(fileName) + "/." + File::basename(fileName) + "-copy";
-    if(!tableFile.copy(tempFileName) || !File::rename(tempFileName, copyFileName))
-      return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
-
-    Buffer& responseBuffer = currentWorkerJob->getResponseData();
-    responseBuffer.resize(sizeof(zlimdb_header));
-    zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
-    ClientProtocol::setHeader(*response, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
-  }
-  else // open destination file
-  {
-    if(!tableFile.open())
-      return sendErrorResponse(copy.header.request_id, zlimdb_error_open_file);
-
-    Buffer& responseBuffer = currentWorkerJob->getResponseData();
-    responseBuffer.resize(sizeof(zlimdb_copy_response));
-    zlimdb_copy_response* response = (zlimdb_copy_response*)(byte_t*)responseBuffer;
-    ClientProtocol::setHeader(response->header, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
-    response->id = tableFile.getTableId();
-  }
-}
-
-void_t WorkerThread::handleReplace(const zlimdb_replace_request& replace)
-{
-  TableFile& tableFile = currentWorkerJob->getTableFile();
   switch(currentWorkerJob->getParam1())
   {
-    case 0: // create a copy of the source file
+    case 0: // copy the source file
+    case 2: // copy the source file to a new table
     {
-      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&replace + 1);
-
-      String destFileName;
-      if(!ClientProtocol::getString(tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, destFileName))
-        return sendErrorResponse(replace.header.request_id, zlimdb_error_invalid_message_data);
+      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&copy + 1);
+      String destinationFileName;
+      if(!ClientProtocol::getString(tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, destinationFileName))
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_invalid_message_data);
 
       const String& sourceFileName = tableFile.getFileName();
       const String tempSourceFileName = File::dirname(sourceFileName) + "/." + File::basename(sourceFileName) + "-copy";
-      const String tempDestFileName = File::dirname(destFileName) + "/." + File::basename(destFileName) + "-new";
+      const String tempDestFileName = File::dirname(destinationFileName) + "/." + File::basename(destinationFileName) + "-new";
       if(!tableFile.copy(tempSourceFileName))
-        return sendErrorResponse(replace.header.request_id, zlimdb_error_write_file);
-
-      if(!File::rename(tempSourceFileName, tempDestFileName))
-        return sendErrorResponse(replace.header.request_id, zlimdb_error_write_file);
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
+      if(currentWorkerJob->getParam1() == 2)
+      {
+        String dir = File::dirname(tempDestFileName);
+        bool renameResult;
+        directoryMutex.lock();
+        Directory::create(dir);
+        renameResult = File::rename(tempSourceFileName, tempDestFileName);
+        directoryMutex.unlock();
+        if(!renameResult)
+          return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
+      }
+      else if(!File::rename(tempSourceFileName, tempDestFileName))
+        return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(zlimdb_header));
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
-      ClientProtocol::setHeader(*response, zlimdb_message_replace_response, sizeof(zlimdb_header), replace.header.request_id);
+      ClientProtocol::setHeader(*response, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
       return;
     }
-    case 1: // open the new destination file
+    case 1: // open the destination file
+    case 3: // open the destination file of a new table
     {
-      const String destFileName = tableFile.getFileName();
-      const String tempDestFileName = File::dirname(destFileName) + "/." + File::basename(destFileName) + "-new";
+      const String destinationFileName = tableFile.getFileName();
+      const String tempDestinationFileName = File::dirname(destinationFileName) + "/." + File::basename(destinationFileName) + "-new";
 
-      tableFile.close();
-      if(File::exists(tempDestFileName)) // tempDestFileName does not exist when it was stolen by a previous replace action in case they were executed in quick succession. 
-                                         // destFileName is already the newest when this happens, hence we can simply reopen the file and ignore that tempDestFileName does not exist.
-        if(!File::rename(tempDestFileName, destFileName, false))
-          return sendErrorResponse(replace.header.request_id, zlimdb_error_write_file);
-      if(!tableFile.open())
-        return sendErrorResponse(replace.header.request_id, zlimdb_error_open_file);
+      if(File::exists(tempDestinationFileName)) // tempDestinationFileName does not exist when it was stolen by a previous copy or replace action in case they were executed in quick succession. 
+      {                                         // destinationFileName is already the newest when this happens, hence we can skip this...
+        tableFile.close();
+        if(!File::rename(tempDestinationFileName, destinationFileName, false))
+          return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
+        if(!tableFile.open())
+          return sendErrorResponse(copy.header.request_id, zlimdb_error_open_file);
+      }
+      else if(currentWorkerJob->getParam1() == 3)
+          return sendErrorResponse(copy.header.request_id, zlimdb_error_open_file);
+
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
       responseBuffer.resize(sizeof(zlimdb_copy_response));
+      zlimdb_copy_response* response = (zlimdb_copy_response*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(response->header, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
+      response->id = tableFile.getTableId();
+      return;
+    }
+  }
+}
+
+void_t WorkerThread::handleRename(const zlimdb_rename_request& rename)
+{
+  TableFile& tableFile = currentWorkerJob->getTableFile();
+  switch(currentWorkerJob->getParam1())
+  {
+    case 0: // move the source file
+    case 2: // move the source file to a new table
+    {
+      const zlimdb_table_entity* tableEntity = (const zlimdb_table_entity*)(&rename + 1);
+      String destinationFileName;
+      if(!ClientProtocol::getString(tableEntity->entity, sizeof(zlimdb_table_entity), tableEntity->name_size, destinationFileName))
+        return sendErrorResponse(rename.header.request_id, zlimdb_error_invalid_message_data);
+
+      const String& sourceFileName = tableFile.getFileName();
+      const String tempDestFileName = File::dirname(destinationFileName) + "/." + File::basename(destinationFileName) + "-new";
+      tableFile.close();
+      if(currentWorkerJob->getParam1() == 2)
+      {
+        String dir = File::dirname(tempDestFileName);
+        bool renameResult;
+        directoryMutex.lock();
+        Directory::create(dir);
+        renameResult = File::rename(sourceFileName, tempDestFileName);
+        directoryMutex.unlock();
+        if(!renameResult)
+          return sendErrorResponse(rename.header.request_id, zlimdb_error_write_file);
+      }
+      else if(!File::rename(sourceFileName, tempDestFileName))
+        return sendErrorResponse(rename.header.request_id, zlimdb_error_write_file);
+
+      directoryMutex.lock();
+      Directory::purge(File::dirname(sourceFileName));
+      directoryMutex.unlock();
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(zlimdb_header));
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
-      ClientProtocol::setHeader(*response, zlimdb_message_replace_response, sizeof(zlimdb_header), replace.header.request_id);
+      ClientProtocol::setHeader(*response, zlimdb_message_rename_response, sizeof(zlimdb_header), rename.header.request_id);
+      return;
+    }
+    case 1: // open the destination file
+    case 3: // open the destination file of a new table
+    {
+      const String destinationFileName = tableFile.getFileName();
+      const String tempDestinationFileName = File::dirname(destinationFileName) + "/." + File::basename(destinationFileName) + "-new";
+
+      if(File::exists(tempDestinationFileName)) // tempDestinationFileName does not exist when it was stolen by a previous copy or replace action in case they were executed in quick succession. 
+      {                                         // destinationFileName is already the newest when this happens, hence we can skip this...
+        tableFile.close();
+        if(!File::rename(tempDestinationFileName, destinationFileName, false))
+          return sendErrorResponse(rename.header.request_id, zlimdb_error_write_file);
+        if(!tableFile.open())
+          return sendErrorResponse(rename.header.request_id, zlimdb_error_open_file);
+      }
+      else if(currentWorkerJob->getParam1() == 3)
+        return sendErrorResponse(rename.header.request_id, zlimdb_error_open_file);
+
+      Buffer& responseBuffer = currentWorkerJob->getResponseData();
+      responseBuffer.resize(sizeof(zlimdb_rename_response));
+      zlimdb_rename_response* response = (zlimdb_rename_response*)(byte_t*)responseBuffer;
+      ClientProtocol::setHeader(response->header, zlimdb_message_rename_response, sizeof(zlimdb_rename_response), rename.header.request_id);
+      response->id = tableFile.getTableId();
       return;
     }
   }

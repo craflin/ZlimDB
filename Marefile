@@ -4,7 +4,7 @@ buildDir = "Build/$(configuration)/$(target)"
 targets = {
 
   zlimdb = cppApplication + {
-    dependencies = { "libnstd", "liblz4" }
+    dependencies = { "libnstd", "liblz4", "UnitTest" }
     includePaths = { "Ext/libnstd/include", "Ext/lz4", "Ext/libzlimdbclient/include" }
     libPaths = { "Build/$(configuration)/libnstd", "Build/$(configuration)/liblz4" }
     libs = { "nstd", "lz4" }

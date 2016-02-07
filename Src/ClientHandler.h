@@ -74,7 +74,7 @@ private:
   void_t handleClear(const zlimdb_clear_request& clear);
   void_t handleFind(const zlimdb_find_request& find);
   void_t handleCopy(const zlimdb_copy_request& copy);
-  void_t handleReplace(const zlimdb_replace_request& replace);
+  void_t handleRename(const zlimdb_rename_request& rename);
   void_t handleControl(zlimdb_control_request& control);
   void_t handleControlResponse(zlimdb_header& response);
 
@@ -87,7 +87,7 @@ private:
   void_t handleInternalClearResponse(WorkerJob& workerJob, const zlimdb_header& clearResponse);
   void_t handleInternalSubscribeResponse(WorkerJob& workerJob, zlimdb_header& subscribeResponse);
   void_t handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_header& copyResponse);
-  void_t handleInternalReplaceResponse(WorkerJob& workerJob, zlimdb_header& replaceResponse);
+  void_t handleInternalRenameResponse(WorkerJob& workerJob, zlimdb_header& renameResponse);
   void_t handleInternalErrorResponse(WorkerJob& workerJob, const zlimdb_error_response& errorResponse);
 
   void_t sendOkResponse(zlimdb_message_type type,uint32_t requestId);
