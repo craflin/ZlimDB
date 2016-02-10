@@ -915,6 +915,11 @@ void_t ClientHandler::handleInternalCopyResponse(WorkerJob& workerJob, zlimdb_he
         }
       }
 
+      // update ids of destination table
+      const zlimdb_header* response = (const zlimdb_header*)(const byte_t*)workerJob.getResponseData();
+      const uint64_t* p = (const uint64_t*)(response + 1);
+      destinationTable->setLastEntityId(p[0], p[1]);
+
       // create internal job to open the copied file
       if(!serverHandler.createWorkerJob2(*this, *destinationTable, copyRequest, copyRequest->header.size, param))
         return sendErrorResponse(copyRequest->header.request_id, zlimdb_error_table_not_found);
@@ -1014,6 +1019,11 @@ void_t ClientHandler::handleInternalRenameResponse(WorkerJob& workerJob, zlimdb_
           param = 3;
         }
       }
+
+      // update ids of destination table
+      const zlimdb_header* response = (const zlimdb_header*)(const byte_t*)workerJob.getResponseData();
+      const uint64_t* p = (const uint64_t*)(response + 1);
+      destinationTable->setLastEntityId(p[0], p[1]);
 
       // create internal job to open the copied file
       if(!serverHandler.createWorkerJob2(*this, *destinationTable, renameRequest, renameRequest->header.size, param))

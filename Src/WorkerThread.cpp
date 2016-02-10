@@ -375,9 +375,12 @@ void_t WorkerThread::handleCopy(const zlimdb_copy_request& copy)
         return sendErrorResponse(copy.header.request_id, zlimdb_error_write_file);
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
-      responseBuffer.resize(sizeof(zlimdb_header));
+      responseBuffer.resize(sizeof(zlimdb_header) + sizeof(uint64_t) * 2);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       ClientProtocol::setHeader(*response, zlimdb_message_copy_response, sizeof(*response), copy.header.request_id);
+      uint64_t* p = (uint64_t*)(response + 1);
+      p[0] = tableFile.getLastId();
+      p[1] = tableFile.getLastTimestamp();
       return;
     }
     case 1: // open the destination file
@@ -442,9 +445,12 @@ void_t WorkerThread::handleRename(const zlimdb_rename_request& rename)
       directoryMutex.unlock();
 
       Buffer& responseBuffer = currentWorkerJob->getResponseData();
-      responseBuffer.resize(sizeof(zlimdb_header));
+      responseBuffer.resize(sizeof(zlimdb_header) + sizeof(uint64_t) * 2);
       zlimdb_header* response = (zlimdb_header*)(byte_t*)responseBuffer;
       ClientProtocol::setHeader(*response, zlimdb_message_rename_response, sizeof(zlimdb_header), rename.header.request_id);
+      uint64_t* p = (uint64_t*)(response + 1);
+      p[0] = tableFile.getLastId();
+      p[1] = tableFile.getLastTimestamp();
       return;
     }
     case 1: // open the destination file
