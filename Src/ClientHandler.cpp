@@ -564,7 +564,6 @@ void_t ClientHandler::handleControl(zlimdb_control_request& control)
       ControlJob& controlJob = serverHandler.createControlJob(*this, *table, &control, control.header.size);
 
       // send request to responder
-      uint64_t requestId = control.header.request_id;
       control.header.request_id = controlJob.getId();
       responder->client.send((const byte_t*)&control, control.header.size);
     }
@@ -623,7 +622,7 @@ void_t ClientHandler::handleMetaQuery(const zlimdb_query_request& query, zlimdb_
             continue;
           for(;;)
           {
-            if(pos - buffer > sizeof(ZLIMDB_MAX_MESSAGE_SIZE) - sizeof(zlimdb_table_entity) ||
+            if((size_t)(pos - buffer) > sizeof(ZLIMDB_MAX_MESSAGE_SIZE) - sizeof(zlimdb_table_entity) ||
               !table->copyEntity(*(zlimdb_table_entity*)pos, sizeof(ZLIMDB_MAX_MESSAGE_SIZE) - (pos - buffer)))
             {
               response->flags = zlimdb_header_flag_fragmented;
