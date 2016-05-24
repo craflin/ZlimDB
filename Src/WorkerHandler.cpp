@@ -13,6 +13,7 @@ WorkerHandler::~WorkerHandler()
 {
   while(!openWorkerJobs.isEmpty())
     serverHandler.removeWorkerJob(*openWorkerJobs.front());
+  client.close();
 }
 
 void_t WorkerHandler::addWorkerJob(WorkerJob& workerJob)

@@ -19,10 +19,10 @@ ServerHandler::ServerHandler(Server& server) : server(server), nextTableId(100),
 
 ServerHandler::~ServerHandler()
 {
-  for(HashMap<WorkerHandler*, WorkerThread*>::Iterator i = workerThreads.begin(), end = workerThreads.end(); i != end; ++i)
-    delete *i;
   for(HashSet<WorkerHandler*>::Iterator i = workerHandlers.begin(), end = workerHandlers.end(); i != end; ++i)
     delete * i;
+  for(HashMap<WorkerHandler*, WorkerThread*>::Iterator i = workerThreads.begin(), end = workerThreads.end(); i != end; ++i)
+    delete *i;
   for(HashSet<ClientHandler*>::Iterator i = clientHandlers.begin(), end = clientHandlers.end(); i != end; ++i)
     delete *i;
   for(HashMap<uint32_t, Table*>::Iterator i = tables.begin(), end = tables.end(); i != end; ++i)

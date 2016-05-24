@@ -42,6 +42,8 @@ public:
   Subscription& createSubscription(ClientHandler& clientHandler, Table& table);
   void_t removeSubscription(Subscription& subscription);
 
+  void_t shutdown() {server.stop();}
+
 private:
   Server& server;
   uint32_t nextTableId;

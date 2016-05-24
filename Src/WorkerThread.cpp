@@ -57,8 +57,6 @@ uint_t WorkerThread::main(void_t* param)
       sent += i;
     } while(sent < sizeof(workerJob));
   }
-
-  return 0;
 }
 
 void_t WorkerThread::handleMessage(const zlimdb_header& header)
