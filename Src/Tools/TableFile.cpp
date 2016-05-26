@@ -6,7 +6,7 @@
 
 #include "TableFile.h"
 
-#define DEFAULT_BLOCK_SIZE 4096
+#define DEFAULT_BLOCK_SIZE 32768
 #define DEFAULT_KEY_SIZE (DEFAULT_BLOCK_SIZE / sizeof(Key) * sizeof(Key))
 
 bool_t TableFile::create()
